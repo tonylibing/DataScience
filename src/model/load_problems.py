@@ -14,10 +14,10 @@ def load_problem_flight(large=False, convert_to_ints=False):
     https://s3.amazonaws.com/benchm-ml--main/train-10m.csv
     '''
     if large:
-        trainX = pandas.read_csv('../data/flight_train-10m.csv')
+        trainX = pandas.read_csv('/media/sf_D_DRIVE/BaiduNetdiskDownload/flight/train-10m.csv')
     else:
-        trainX = pandas.read_csv('../data/flight_train-0.1m.csv')
-    testX  = pandas.read_csv('../data/flight_test.csv')
+        trainX = pandas.read_csv('/media/sf_D_DRIVE/BaiduNetdiskDownload/flight/train-0.1m.csv')
+    testX  = pandas.read_csv('/media/sf_D_DRIVE/BaiduNetdiskDownload/flight/test.csv')
     
     trainY = (trainX.dep_delayed_15min.values == 'Y') * 1
     testY  = (testX.dep_delayed_15min.values == 'Y') * 1
