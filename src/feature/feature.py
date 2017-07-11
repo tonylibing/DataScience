@@ -32,3 +32,20 @@ mono_bin(data.bad, data.bureau_score)
 mono_bin(data.bad, data.age_oldest_tr)
 mono_bin(data.bad, data.tot_tr)
 mono_bin(data.bad, data.tot_income)
+
+
+# R implementation
+# monobin <- function(data, y, x) {
+#   d1 <- data[c(y, x)]
+#   n <- min(20, nrow(unique(d1[x])))
+#   repeat {
+#     d1$bin <- Hmisc::cut2(d1[, x], g = n)
+#     d2 <- aggregate(d1[-3], d1[3], mean)
+#     c <- cor(d2[-1], method = "spearman")
+#     if(abs(c[1, 2]) == 1 | n == 2) break
+#     n <- n - 1
+#   }
+#   d3 <- aggregate(d1[-3], d1[3], max)
+#   cuts <- d3[-length(d3[, 3]), 3]
+#   return(smbinning::smbinning.custom(d1, y, x, cuts))
+# }
