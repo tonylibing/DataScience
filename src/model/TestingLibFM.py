@@ -56,8 +56,8 @@
 
 # In[1]:
 
-import numpy
-import pandas
+import numpy as np
+import pandas as pd
 import load_problems
 import cPickle as pickle
 from sklearn.metrics import roc_auc_score, mean_squared_error
@@ -65,7 +65,7 @@ from sklearn.metrics import roc_auc_score, mean_squared_error
 
 # In[2]:
 
-from fastFM.mcmc import FMClassification, FMRegression
+# from fastFM.mcmc import FMClassification, FMRegression
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.datasets import dump_svmlight_file
@@ -121,7 +121,7 @@ def fitpredict_libfm(trainX, trainY, testX, classification=True, rank=8, n_iter=
     task = 'c' if classification else 'r'
     console_output = get_ipython().getoutput(u"$LIBFM_PATH -task $task -method mcmc -train $train_file -test $test_file -iter $n_iter -dim '1,1,$rank' -out output.libfm")
     
-    libfm_pred = pandas.read_csv('output.libfm', header=None).values.flatten()
+    libfm_pred = pd.read_csv('output.libfm', header=None).values.flatten()
     return libfm_pred
 
 def fitpredict_pylibfm(trainX, trainY, testX, classification=True, rank=8, n_iter=10):
@@ -153,15 +153,15 @@ try:
 except:
     pass
 
-def test_on_dataset(trainX, testX, trainY, testY, task_name, classification=True, use_pylibfm=True):
+def test_on_dataset(trainX, testX, trainY, testY, task_name, classification=True, use_pylibfm=False):
     algorithms = OrderedDict()
     algorithms['logistic'] = fitpredict_logistic
     algorithms['libFM']    = fitpredict_libfm
-    algorithms['fastFM']   = fitpredict_fastfm
+    # algorithms['fastFM']   = fitpredict_fastfm
     if use_pylibfm:
         algorithms['pylibfm']  = fitpredict_pylibfm
     
-    results = pandas.DataFrame()
+    results = pd.DataFrame()
     for name, fit_predict in algorithms.items():
         start = time.time()
         predictions = fit_predict(trainX, trainY, testX, classification=classification)
@@ -326,7 +326,7 @@ test_on_dataset(trainX, testX, trainY, testY,
 
 # In[69]:
 
-results_table = pandas.DataFrame()
+results_table = pd.DataFrame()
 tuples = []
 
 for name in ['ml100k, ids', 'ml-1m,ids', 'ml100k', 'ml-1m', 'flight1m', 'flight1m, ext', 'flight10m', 'avazu100k', 'avazu1m']:
@@ -338,7 +338,7 @@ for name in ['ml100k, ids', 'ml-1m,ids', 'ml100k', 'ml-1m', 'flight1m', 'flight1
     tuples.append([name, df.columns[-1]])
     
 results_table = results_table.T
-results_table.index = pandas.MultiIndex.from_tuples(tuples, names=['dataset', 'value'])
+results_table.index = pd.MultiIndex.from_tuples(tuples, names=['dataset', 'value'])
 results_table.T
 
 
