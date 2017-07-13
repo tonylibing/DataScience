@@ -143,7 +143,7 @@ class LogTransformer(TransformerMixin):
     def transform(self, X):
         return X[self.columns]
 
-class ImputingMissingransformer(TransformerMixin):
+class ImputingMissingTransformer(TransformerMixin):
     def __init__(self, transformer, empty_values = [float('nan'), np.NaN, None]):
         self.transformer = transformer
         self.empty_values = empty_values
