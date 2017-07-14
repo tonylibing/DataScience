@@ -19,8 +19,9 @@ class ColumnExtractor(TransformerMixin):
 
 class OutliersFilter(TransformerMixin):
     def __init__(self, column, method="percentile", threshold = 95):
-        self.columns = column
+        self.column = column
         self.method = method
+        self.modified_z_score = None
         self.threshold = threshold
 
     def fit(self, X):
@@ -36,14 +37,16 @@ class OutliersFilter(TransformerMixin):
             diff = np.sum((points - median) ** 2, axis=-1)
             diff = np.sqrt(diff)
             med_abs_deviation = np.median(diff)
+            self.modified_z_score = 0.6745 * diff / med_abs_deviation
 
-            modified_z_score = 0.6745 * diff / med_abs_deviation
-
-            return modified_z_score > self.threshold
         return self
 
     def transform(self, X):
-        return X.loc[(X[self.column] < self.minval) | (X[self.column] > self.maxval)]
+        if self.method == "percentile":
+            return X.loc[(X[self.column] < self.minval) | (X[self.column] > self.maxval)]
+        elif self.method=="mad":
+            return X.loc[self.modified_z_score>self.threshold]
+																								
 
     def mad_based_outlier(points, thresh=3.5):
         if len(points.shape) == 1:
