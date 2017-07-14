@@ -5,7 +5,13 @@ import pandas as pd
 import numpy as np
 import scipy.stats.stats as stats
 from collections import defaultdict
-
+import random
+import operator
+import numbers
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.model_selection import train_test_split
+import datetime
+import time
 
 
 class ColumnExtractor(TransformerMixin):
@@ -108,7 +114,7 @@ class MonotonicBinarizer(TransformerMixin):
     def fit(self, X, y):
         return self
 
-    def transform(self, X):
+    def transform(self, X,Y):
         X2 = X.fillna(np.median(X))
         r = 0
         while np.abs(r) < 1:
@@ -124,6 +130,26 @@ class MonotonicBinarizer(TransformerMixin):
         d4 = (d3.sort_index(by='min_' + X.name)).reset_index(drop=True)
         print "=" * 60
         print d4
+        return X[self.columns]
+
+class LogTransformer(TransformerMixin):
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y):
+        return self
+
+    def transform(self, X):
+        return X[self.columns]
+
+class PowerTransformer(TransformerMixin):
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y):
+        return self
+
+    def transform(self, X):
         return X[self.columns]
 
 class CategoricalFeatureTransformer(TransformerMixin):
@@ -149,15 +175,30 @@ class LabelTransformer(TransformerMixin):
     def fit(self, *_):
         return self
 
-class MultiLabelTransformer(TransformerMixin):
+class MultiColumnLabelEncoder(TransformerMixin):
+    def __init__(self,columns = None):
+        self.columns = columns # array of column names to encode
 
-    def transform(self, X, *_):
-        X_1 = pd.DataFrame(X.copy())
-        X_1 = X_1.apply(LabelEncoder().fit_transform)
-        return X_1
+    def fit(self,X,y=None):
+        return self # not relevant here
 
-    def fit(self, *_):
-        return self
+    def transform(self,X):
+        '''
+        Transforms columns of X specified in self.columns using
+        LabelEncoder(). If no columns specified, transforms all
+        columns in X.
+        '''
+        output = X.copy()
+        if self.columns is not None:
+            for col in self.columns:
+                output[col] = LabelEncoder().fit_transform(output[col])
+        else:
+            for colname,col in output.iteritems():
+                output[colname] = LabelEncoder().fit_transform(col)
+        return output
+
+    def fit_transform(self,X,y=None):
+        return self.fit(X,y).transform(X)
 
 class OrdinalTransformer(TransformerMixin):
     def __init__(self, ord_col_map):
@@ -175,25 +216,6 @@ class OrdinalTransformer(TransformerMixin):
     def fit(self, *_):
         return self
 
-class LogTransformer(TransformerMixin):
-    def __init__(self, columns):
-        self.columns = columns
-
-    def fit(self, X, y):
-        return self
-
-    def transform(self, X):
-        return X[self.columns]
-
-class PowerTransformer(TransformerMixin):
-    def __init__(self, columns):
-        self.columns = columns
-
-    def fit(self, X, y):
-        return self
-
-    def transform(self, X):
-        return X[self.columns]
 
 class ImputingMissingTransformer(TransformerMixin):
     def __init__(self, transformer, empty_values = [float('nan'), np.NaN, None]):
@@ -212,6 +234,74 @@ class ImputingMissingTransformer(TransformerMixin):
     def fit(self, *_):
         return self
 
+### The function making up missing values in Continuous or Categorical variable
+def ProcessExtremeAndMissingTransformer(TransformerMixin):
+    def fit(self, *_):
+        return self
+
+    def transform(df,col,type,method):
+        '''
+        :param df: dataset containing columns with missing value
+        :param col: columns with missing value
+        :param type: the type of the column, should be Continuous or Categorical
+        :return: the made up columns
+        '''
+        #Take the sample with non-missing value in col
+        validDf = df.loc[df[col] == df[col]][[col]]
+        if validDf.shape[0] == df.shape[0]:
+            return 'There is no missing value in {}'.format(col)
+
+        #copy the original value from col to protect the original dataframe
+        missingList = [i for i in df[col]]
+        if type == 'Continuous':
+            if method not in ['Mean','Random']:
+                return 'Please specify the correct treatment method for missing continuous variable!'
+            #get the descriptive statistics of col
+            descStats = validDf[col].describe()
+            mu = descStats['mean']
+            std = descStats['std']
+            maxVal = descStats['max']
+            #detect the extreme value using 3-sigma method
+            if maxVal > mu+3*std:
+                for i in list(validDf.index):
+                    if validDf.loc[i][col] > mu+3*std:
+                        #decrease the extreme value to normal level
+                        validDf.loc[i][col] = mu + 3 * std
+                #re-calculate the mean based on cleaned data
+                mu = validDf[col].describe()['mean']
+            for i in range(df.shape[0]):
+                if df.loc[i][col] != df.loc[i][col]:
+                    #use the mean or sampled data to replace the missing value
+                    if method == 'Mean':
+                        missingList[i] = mu
+                    elif method == 'Random':
+                        missingList[i] = random.sample(validDf[col],1)[0]
+        elif type == 'Categorical':
+            if method not in ['Mode', 'Random']:
+                return 'Please specify the correct treatment method for missing categorical variable!'
+            #calculate the probability of each type of the categorical variable
+            freqDict = {}
+            recdNum = validDf.shape[0]
+            for v in set(validDf[col]):
+                vDf = validDf.loc[validDf[col] == v]
+                freqDict[v] = vDf.shape[0] * 1.0 / recdNum
+            #find the category with highest probability
+            modeVal = max(freqDict.items(), key=lambda x: x[1])[0]
+            freqTuple = freqDict.items()
+            # cumulative sum of each category
+            freqList = [0]+[i[1] for i in freqTuple]
+            freqCumsum = cumsum(freqList)
+            for i in range(df.shape[0]):
+                if df.loc[i][col] != df.loc[i][col]:
+                    if method == 'Mode':
+                        missingList[i] = modeVal
+                    if method == 'Random':
+                        #determine the sampled category using unifor distributed random variable
+                        a = random.random(1)
+                        position = [k+1 for k in range(len(freqCumsum)-1) if freqCumsum[k]<a<=freqCumsum[k+1]][0]
+                        missingList[i] = freqTuple[position-1][0]
+        print 'The missing value in {0} has been made up with the mothod of {1}'.format(col, method)
+        return missingList
 
 class ModelTransformer(TransformerMixin):
     def __init__(self, model) :
@@ -224,6 +314,30 @@ class ModelTransformer(TransformerMixin):
     def fit(self, X, y =None):
         self.model.fit(X,y)
         return self
+
+
+### convert the date variable into the days
+def DateGapGenerator(TransformerMixin):
+    '''
+    :param df: the dataset containing date variable in the format of 2017/1/1
+    :param date: the column of date
+    :param base: the base date used in calculating day gap
+    :return: the days gap
+    '''
+    def __init__(self, col, base):
+        self.col = col
+        self.base = base
+
+    def fit(self, X):
+        return self
+
+    def transform(self, X ):
+        base2 = time.strptime(self.base,'%Y/%m/%d')
+        base3 = datetime.datetime(base2[0],base2[1],base2[2])
+        date1 = [time.strptime(i,'%Y/%m/%d') for i in X[self.col]]
+        date2 = [datetime.datetime(i[0],i[1],i[2]) for i in date1]
+        daysGap = [(date2[i] - base3).days for i in range(len(date2))]
+        return daysGap
 
 
 class HourOfDayTransformer(TransformerMixin):
