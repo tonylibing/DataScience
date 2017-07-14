@@ -18,14 +18,49 @@ class ColumnExtractor(TransformerMixin):
         return X[self.columns]
 
 class OutliersFilter(TransformerMixin):
-    def __init__(self, columns):
-        self.columns = columns
+    def __init__(self, column, method="percentile", threshold = 95):
+        self.columns = column
+        self.method = method
+        self.threshold = threshold
 
-    def fit(self, X, y):
+    def fit(self, X):
+        if self.method == "percentile":
+            diff = (100 - self.threshold) / 2.0
+            minval, maxval = np.percentile(X[self.column], [diff, 100 - diff])
+            self.minval = minval
+            self.maxval = maxval
+        elif self.method=="mad":
+            if len(X[self.column].shape) == 1:
+                points = X[self.column][:, None]
+            median = np.median(points, axis=0)
+            diff = np.sum((points - median) ** 2, axis=-1)
+            diff = np.sqrt(diff)
+            med_abs_deviation = np.median(diff)
+
+            modified_z_score = 0.6745 * diff / med_abs_deviation
+
+            return modified_z_score > self.threshold
         return self
 
     def transform(self, X):
-        return X[self.columns]
+        return X.loc[(X[self.column] < self.minval) | (X[self.column] > self.maxval)]
+
+    def mad_based_outlier(points, thresh=3.5):
+        if len(points.shape) == 1:
+            points = points[:, None]
+        median = np.median(points, axis=0)
+        diff = np.sum((points - median) ** 2, axis=-1)
+        diff = np.sqrt(diff)
+        med_abs_deviation = np.median(diff)
+
+        modified_z_score = 0.6745 * diff / med_abs_deviation
+
+        return modified_z_score > thresh
+
+    def percentile_based_outlier(data, threshold=95):
+        diff = (100 - threshold) / 2.0
+        minval, maxval = np.percentile(data, [diff, 100 - diff])
+        return (data < minval) | (data > maxval)
 
 class ContinuousFeatureTransformer(TransformerMixin):
     def __init__(self, columns):
@@ -204,3 +239,4 @@ class DayOfMonthTransformer(TransformerMixin):
     def transform(self, X):
         return X[self.columns]
 
+####################################################################################
