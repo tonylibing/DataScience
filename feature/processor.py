@@ -4,6 +4,7 @@ from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 import numpy as np
 import scipy.stats.stats as stats
+from collections import defaultdict
 
 
 
@@ -136,10 +137,13 @@ class CategoricalFeatureTransformer(TransformerMixin):
         return X[self.columns]
 
 class LabelTransformer(TransformerMixin):
+    def __init__(self,columns):
+        self.columns = columns
+        self.encoders_dict = defaultdict(LabelEncoder)
 
     def transform(self, X, *_):
         X_1 = pd.DataFrame(X.copy())
-        X_1 = X_1.apply(LabelEncoder().fit_transform)
+        X_1 = X_1.apply(lambda x: self.encoders_dict[x.name].fit_transform(x) if x.name in self.columns else x)
         return X_1
 
     def fit(self, *_):
@@ -172,6 +176,16 @@ class OrdinalTransformer(TransformerMixin):
         return self
 
 class LogTransformer(TransformerMixin):
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y):
+        return self
+
+    def transform(self, X):
+        return X[self.columns]
+
+class PowerTransformer(TransformerMixin):
     def __init__(self, columns):
         self.columns = columns
 
