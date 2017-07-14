@@ -290,7 +290,7 @@ def ProcessExtremeAndMissingTransformer(TransformerMixin):
             freqTuple = freqDict.items()
             # cumulative sum of each category
             freqList = [0]+[i[1] for i in freqTuple]
-            freqCumsum = cumsum(freqList)
+            freqCumsum = np.cumsum(freqList)
             for i in range(df.shape[0]):
                 if df.loc[i][col] != df.loc[i][col]:
                     if method == 'Mode':
