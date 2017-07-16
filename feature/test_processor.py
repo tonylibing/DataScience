@@ -1,4 +1,6 @@
 from processor import OutliersFilter
+from processor import ReduceVIF
+
 
 import numpy as np
 import pandas as pd
@@ -34,3 +36,18 @@ grid.best_params_
 
 grid.best_score_
 # 0.702290076336
+
+
+
+# ReduceVIF test
+X = pd.read_csv('../input/train.csv', index_col=0, parse_dates=['timestamp'])
+y = X.pop('price_doc')
+X.head()
+
+
+transformer = ReduceVIF()
+
+# Only use 10 columns for speed in this example
+X = transformer.fit_transform(X[X.columns[-10:]], y)
+
+X.head()
