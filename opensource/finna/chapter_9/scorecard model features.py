@@ -22,7 +22,8 @@ from sklearn.linear_model import LogisticRegressionCV
 #########################################################################################################
 #Step 0: Initiate the data processing work, including reading csv files, checking the consistency of Idx#
 #########################################################################################################
-path= 'D:/workspace/DataScience/data/ppd/'
+#path= 'D:/workspace/DataScience/data/ppd/'
+path= '~/workspace/DataScience/data/ppd/'
 data1 = pd.read_csv(path+'Training Set/PPD_LogInfo_3_1_Training_Set.csv', header = 0)
 data2 = pd.read_csv(path+'Training Set/PPD_Training_Master_GBK_3_1_Training_Set.csv', header = 0,encoding = 'gbk')
 data3 = pd.read_csv(path+'Training Set/PPD_Userupdate_Info_3_1_Training_Set.csv', header = 0)
