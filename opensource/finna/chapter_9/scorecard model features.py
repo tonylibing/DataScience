@@ -14,7 +14,9 @@ import pickle
 reload(sys)
 sys.setdefaultencoding( "utf-8")
 # sys.path.append(path+"/Notes/07 申请评分卡中的数据预处理和特征衍生/")
-# from scorecard_fucntions import *
+import scorecard_fucntions
+reload(scorecard_fucntions)
+from scorecard_fucntions import *
 from sklearn.linear_model import LogisticRegressionCV
 # -*- coding: utf-8 -*-
 
