@@ -89,7 +89,7 @@ for col in numerical_var:
         if missingRate > 0:
             not_missing = allData.loc[allData[col] == allData[col]][col]
             value = not_missing.median()
-            allData[col].fillna(value,inplace=True)
+            allData[col]=allData[col].fillna(value)
             missingRate2 = MissingContinuous(allData, col)
             print 'missing rate after making up is:{}'.format(str(missingRate2))
 
