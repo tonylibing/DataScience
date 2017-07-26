@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import random
 
 ### Calculate the cumulative frequences of events for each selected time window
 def TimeWindowSelection(df, daysCol, time_windows):
