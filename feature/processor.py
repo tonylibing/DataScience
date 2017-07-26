@@ -106,13 +106,27 @@ class OutliersFilter(TransformerMixin):
 
 class ContinuousFeatureTransformer(TransformerMixin):
     def __init__(self, columns):
-        self.columns = columns
+        self.fillmethod = self.parameters['fillmethod']
 
-    def fit(self, X, y):
-        return self
+    def fit(self, df):
+        self.initialize()
+        if self.fillmethod == 'value':
+            self.value = self.parameters['value']
+        elif self.fillmethod == 'mean':
+            self.value = df[self.col].mean()
+        elif self.fillmethod == 'median':
+            self.value = df[self.col].median()
+        self.dimension = 1
 
-    def transform(self, X):
-        return X[self.columns]
+    def transform(self, df):
+        if self.fillmethod == 'random':
+            missing_cnt = df.loc[np.isnan(df[col])][col].size
+            not_missing = df.loc[~np.isnan(df[col])][col]
+            rnd_value = not_missing.sample(n=missing_cnt)
+            df.loc[np.isnan(df[col])][col] = rnd_value
+        else:
+            df[self.col_name] = df[self.col].fillna(self.value)
+
 
 class QuantileBinarizer(TransformerMixin):
     def __init__(self, columns):

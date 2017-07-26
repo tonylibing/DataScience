@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pandas as pd
 import datetime
 import collections
@@ -18,7 +19,7 @@ import scorecard_fucntions
 reload(scorecard_fucntions)
 from scorecard_fucntions import *
 from sklearn.linear_model import LogisticRegressionCV
-# -*- coding: utf-8 -*-
+
 
 
 #########################################################################################################

@@ -32,7 +32,7 @@ def MissingContinuous(df,x):
     return sum(missing_vals) * 1.0 / df.shape[0]
 
 def MakeupRandom(x, sampledList):
-    if x==x:
+    if not np.isnan(x):
         return x
     else:
         randIndex = random.randint(0, len(sampledList)-1)
