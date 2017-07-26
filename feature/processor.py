@@ -15,6 +15,36 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 import datetime
 import time
 
+def ColumnInfo(df,col):
+    col_type=''
+    missing_pct = 0.0
+    uniq_vals = list(set(df[col]))
+    if np.nan in uniq_vals:
+        uniq_vals.remove(np.nan)
+    if len(uniq_vals) >= 10 and isinstance(uniq_vals[0], numbers.Real):
+        col_type = 'numerical'
+    else:
+        col_type = 'categorical'
+
+    if(col_type=='numerical'):
+        missing_vals = df[col].map(lambda x: int(np.isnan(x)))
+        missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
+    elif(col_type=='categorical'):
+        missing_vals = df[col].map(lambda x: int(x != x))
+        missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
+
+    return col,col_type,missing_pct
+
+def ColumnSummary(df):
+    column_info = pd.DataFrame([(ColumnInfo(df,col)) for col in df.columns.values])
+    column_info.columns = ['col_name', 'ColumnType','missing_pct']
+    summary = df.describe(include='all').transpose()
+    summary = summary.reset_index()
+    print summary.columns
+    all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
+    all.drop('col_name',axis=1)
+    all.to_csv('colummn_info.csv')
+    return all
 
 class ColumnExtractor(TransformerMixin):
     def __init__(self, columns):
