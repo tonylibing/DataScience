@@ -97,9 +97,6 @@ for col in numerical_var:
 allData.to_csv(path+'bank default/allData_1b.csv', header=True,encoding='gbk', columns = allData.columns, index=False)
 
 
-
-
-
 ####################################
 # Step 3: Group variables into bins#
 ####################################

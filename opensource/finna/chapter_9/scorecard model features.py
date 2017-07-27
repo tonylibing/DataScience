@@ -26,7 +26,7 @@ from sklearn.linear_model import LogisticRegressionCV
 #Step 0: Initiate the data processing work, including reading csv files, checking the consistency of Idx#
 #########################################################################################################
 #path= 'D:/workspace/DataScience/data/ppd/'
-path= '~/workspace/DataScience/data/ppd/'
+path= '/home/tanglek/workspace/DataScience/data/ppd/'
 data1 = pd.read_csv(path+'Training Set/PPD_LogInfo_3_1_Training_Set.csv', header = 0)
 data2 = pd.read_csv(path+'Training Set/PPD_Training_Master_GBK_3_1_Training_Set.csv', header = 0,encoding = 'gbk')
 data3 = pd.read_csv(path+'Training Set/PPD_Userupdate_Info_3_1_Training_Set.csv', header = 0)
@@ -130,7 +130,7 @@ for tw in time_window:
 
 # Combine the above features with raw features in PPD_Training_Master_GBK_3_1_Training_Set
 allData = pd.concat([data2.set_index('Idx'), data3GroupbyIdx.set_index('Idx'), data1GroupbyIdx.set_index('Idx')],axis= 1)
-allData.to_csv(path+'bank default/allData_0.csv',encoding = 'gbk')
+allData.to_csv(path+'bank_default/allData_0.csv',encoding = 'gbk')
 
 
 
@@ -138,7 +138,7 @@ allData.to_csv(path+'bank default/allData_0.csv',encoding = 'gbk')
 ##################################################################################
 # Step 2: Makeup missing value for categorical variables and continuous variables#
 ##################################################################################
-allData = pd.read_csv(path+'bank default/allData_0.csv',header = 0,encoding = 'gbk')
+allData = pd.read_csv(path+'bank_default/allData_0.csv',header = 0,encoding = 'gbk')
 allFeatures = list(allData.columns)
 allFeatures.remove('ListingInfo')
 allFeatures.remove('target')
@@ -200,7 +200,7 @@ for col in numerical_var:
             print 'missing rate after making up is:{}'.format(str(missingRate2))
 
 
-allData.to_csv(path+'bank default/allData_1b.csv', header=True,encoding='gbk', columns = allData.columns, index=False)
+allData.to_csv(path+'bank_default/allData_1b.csv', header=True,encoding='gbk', columns = allData.columns, index=False)
 
 
 
@@ -209,7 +209,7 @@ allData.to_csv(path+'bank default/allData_1b.csv', header=True,encoding='gbk', c
 ####################################
 #for each categorical variable, if it has distinct values more than 5, we use the ChiMerge to merge it
 
-trainData = pd.read_csv(path+'bank default/allData_1b.csv',header = 0, encoding='gbk')
+trainData = pd.read_csv(path+'bank_default/allData_1b.csv',header = 0, encoding='gbk')
 allFeatures = list(trainData.columns)
 allFeatures.remove('ListingInfo')
 allFeatures.remove('target')
@@ -338,14 +338,14 @@ for col in numerical_var:
 
 
 
-trainData.to_csv(path+'bank default/allData_2a.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
+trainData.to_csv(path+'bank_default/allData_2a.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
 
-filewrite = open(path+'bank default/var_WOE.pkl','w')
+filewrite = open(path+'bank_default/var_WOE.pkl','w')
 pickle.dump(var_WOE, filewrite)
 filewrite.close()
 
 
-filewrite = open(path+'bank default/var_IV.pkl','w')
+filewrite = open(path+'bank_default/var_IV.pkl','w')
 pickle.dump(var_IV, filewrite)
 filewrite.close()
 
@@ -353,7 +353,7 @@ filewrite.close()
 #########################################################
 # Step 4: Select variables with IV > 0.02 and assign WOE#
 #########################################################
-trainData = pd.read_csv(path+'bank default/allData_2a.csv', header=0, encoding='gbk')
+trainData = pd.read_csv(path+'bank_default/allData_2a.csv', header=0, encoding='gbk')
 
 num2str = ['SocialNetwork_13','SocialNetwork_12','UserInfo_6','UserInfo_5','UserInfo_10','UserInfo_17','city_match']
 for col in num2str:
@@ -373,7 +373,7 @@ for col in var_WOE.keys():
     else:
         trainData[col2] = trainData[col].map(lambda x: var_WOE[col][x])
 
-trainData.to_csv(path+'bank default/allData_3.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
+trainData.to_csv(path+'bank_default/allData_3.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
 
 
 
@@ -473,7 +473,7 @@ var_WOE_list = ['UserInfo_15_encoding_WOE', u'ThirdParty_Info_Period6_10_WOE', u
 '''
 
 
-saveModel =open(path+'bank default/LR_Model_Normal.pkl','w')
+saveModel =open(path+'bank_default/LR_Model_Normal.pkl','w')
 pickle.dump(LR,saveModel)
 saveModel.close()
 
