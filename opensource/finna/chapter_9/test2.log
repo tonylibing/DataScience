@@ -1,0 +1,467 @@
+we are processing UserInfo_1
+UserInfo_1 is encoded with bad rate
+we are processing UserInfo_3
+UserInfo_3 is encoded with bad rate
+we are processing WeblogInfo_2
+WeblogInfo_2 has 0 bad sample!
+we are processing WeblogInfo_13
+WeblogInfo_13 is encoded with bad rate
+we are processing UserInfo_5
+we are processing UserInfo_6
+we are processing UserInfo_7
+UserInfo_7 is encoded with bad rate
+we are processing UserInfo_9
+UserInfo_9 is encoded with bad rate
+we are processing UserInfo_10
+we are processing UserInfo_12
+we are processing UserInfo_14
+UserInfo_14 is encoded with bad rate
+we are processing UserInfo_15
+UserInfo_15 is encoded with bad rate
+we are processing UserInfo_16
+UserInfo_16 is encoded with bad rate
+we are processing UserInfo_17
+we are processing UserInfo_19
+UserInfo_19 is encoded with bad rate
+we are processing UserInfo_21
+UserInfo_21 is deleted because of large percentage of single bin
+we are processing UserInfo_23
+UserInfo_23 is encoded with bad rate
+we are processing UserInfo_24
+UserInfo_24 is encoded with bad rate
+we are processing Education_Info1
+Education_Info1 is deleted because of large percentage of single bin
+we are processing Education_Info3
+Education_Info3 is deleted because of large percentage of single bin
+we are processing Education_Info5
+Education_Info5 is deleted because of large percentage of single bin
+we are processing Education_Info7
+Education_Info7 is deleted because of large percentage of single bin
+we are processing WeblogInfo_19
+WeblogInfo_19 is encoded with bad rate
+we are processing WeblogInfo_20
+WeblogInfo_20 is encoded with bad rate
+we are processing WeblogInfo_21
+we are processing WeblogInfo_23
+WeblogInfo_23 is deleted because of large percentage of single bin
+we are processing WeblogInfo_26
+WeblogInfo_26 is deleted because of large percentage of single bin
+we are processing WeblogInfo_29
+WeblogInfo_29 is encoded with bad rate
+we are processing WeblogInfo_30
+WeblogInfo_30 is encoded with bad rate
+we are processing WeblogInfo_31
+WeblogInfo_31 is deleted because of large percentage of single bin
+we are processing WeblogInfo_34
+WeblogInfo_34 is deleted because of large percentage of single bin
+we are processing WeblogInfo_37
+WeblogInfo_37 is deleted because of large percentage of single bin
+we are processing WeblogInfo_39
+WeblogInfo_39 is encoded with bad rate
+we are processing WeblogInfo_40
+WeblogInfo_40 is deleted because of large percentage of single bin
+we are processing WeblogInfo_43
+WeblogInfo_43 is deleted because of large percentage of single bin
+we are processing WeblogInfo_45
+WeblogInfo_45 is encoded with bad rate
+we are processing WeblogInfo_46
+WeblogInfo_46 is deleted because of large percentage of single bin
+we are processing WeblogInfo_48
+WeblogInfo_48 is encoded with bad rate
+we are processing WeblogInfo_49
+WeblogInfo_49 is deleted because of large percentage of single bin
+we are processing WeblogInfo_51
+WeblogInfo_51 is encoded with bad rate
+we are processing WeblogInfo_52
+WeblogInfo_52 is deleted because of large percentage of single bin
+we are processing WeblogInfo_54
+WeblogInfo_54 is encoded with bad rate
+we are processing WeblogInfo_55
+WeblogInfo_55 is deleted because of large percentage of single bin
+we are processing WeblogInfo_57
+WeblogInfo_57 is encoded with bad rate
+we are processing WeblogInfo_58
+WeblogInfo_58 is deleted because of large percentage of single bin
+we are processing SocialNetwork_2
+SocialNetwork_2 is deleted because of large percentage of single bin
+we are processing SocialNetwork_11
+SocialNetwork_11 is deleted because of large percentage of single bin
+we are processing SocialNetwork_13
+we are processing SocialNetwork_14
+SocialNetwork_14 is deleted because of large percentage of single bin
+we are processing SocialNetwork_16
+SocialNetwork_16 is deleted because of large percentage of single bin
+we are processing city_match
+city_match is deleted because of large percentage of single bin
+WeblogInfo_4 is in processing
+we delete WeblogInfo_4 because the maximum bin occupies more than 90%
+WeblogInfo_6 is in processing
+we delete WeblogInfo_6 because the maximum bin occupies more than 90%
+WeblogInfo_8 is in processing
+we delete WeblogInfo_8 because the maximum bin occupies more than 90%
+WeblogInfo_11 is in processing
+we delete WeblogInfo_11 because the maximum bin occupies more than 90%
+WeblogInfo_14 is in processing
+we delete WeblogInfo_14 because the maximum bin occupies more than 90%
+WeblogInfo_16 is in processing
+we delete WeblogInfo_16 because the maximum bin occupies more than 90%
+WeblogInfo_18 is in processing
+we delete WeblogInfo_18 because the maximum bin occupies more than 90%
+WeblogInfo_24 is in processing
+we delete WeblogInfo_24 because the maximum bin occupies more than 90%
+WeblogInfo_33 is in processing
+we delete WeblogInfo_33 because the maximum bin occupies more than 90%
+WeblogInfo_42 is in processing
+we delete WeblogInfo_42 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period1_2 is in processing
+we delete ThirdParty_Info_Period1_2 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period1_4 is in processing
+we delete ThirdParty_Info_Period1_4 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period1_6 is in processing
+we delete ThirdParty_Info_Period1_6 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period1_8 is in processing
+we delete ThirdParty_Info_Period1_8 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period1_10 is in processing
+ThirdParty_Info_Period1_11 is in processing
+we delete ThirdParty_Info_Period1_11 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period1_13 is in processing
+we delete ThirdParty_Info_Period1_13 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period1_15 is in processing
+we delete ThirdParty_Info_Period1_15 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period1_17 is in processing
+we delete ThirdParty_Info_Period1_17 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period2_2 is in processing
+we delete ThirdParty_Info_Period2_2 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period2_4 is in processing
+we delete ThirdParty_Info_Period2_4 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period2_6 is in processing
+we delete ThirdParty_Info_Period2_6 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period2_8 is in processing
+we delete ThirdParty_Info_Period2_8 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period2_10 is in processing
+ThirdParty_Info_Period2_11 is in processing
+we delete ThirdParty_Info_Period2_11 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period2_13 is in processing
+we delete ThirdParty_Info_Period2_13 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period2_15 is in processing
+we delete ThirdParty_Info_Period2_15 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period2_17 is in processing
+we delete ThirdParty_Info_Period2_17 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period3_2 is in processing
+we delete ThirdParty_Info_Period3_2 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period3_4 is in processing
+we delete ThirdParty_Info_Period3_4 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period3_6 is in processing
+we delete ThirdParty_Info_Period3_6 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period3_8 is in processing
+we delete ThirdParty_Info_Period3_8 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period3_10 is in processing
+ThirdParty_Info_Period3_11 is in processing
+we delete ThirdParty_Info_Period3_11 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period3_13 is in processing
+we delete ThirdParty_Info_Period3_13 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period3_15 is in processing
+we delete ThirdParty_Info_Period3_15 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period3_17 is in processing
+we delete ThirdParty_Info_Period3_17 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period4_2 is in processing
+we delete ThirdParty_Info_Period4_2 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period4_4 is in processing
+we delete ThirdParty_Info_Period4_4 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period4_6 is in processing
+we delete ThirdParty_Info_Period4_6 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period4_8 is in processing
+we delete ThirdParty_Info_Period4_8 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period4_10 is in processing
+ThirdParty_Info_Period4_11 is in processing
+we delete ThirdParty_Info_Period4_11 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period4_13 is in processing
+we delete ThirdParty_Info_Period4_13 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period4_15 is in processing
+we delete ThirdParty_Info_Period4_15 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period4_17 is in processing
+we delete ThirdParty_Info_Period4_17 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period5_2 is in processing
+ThirdParty_Info_Period5_3 is in processing
+we delete ThirdParty_Info_Period5_3 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period5_5 is in processing
+ThirdParty_Info_Period5_6 is in processing
+we delete ThirdParty_Info_Period5_6 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period5_8 is in processing
+we delete ThirdParty_Info_Period5_8 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period5_10 is in processing
+ThirdParty_Info_Period5_11 is in processing
+we delete ThirdParty_Info_Period5_11 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period5_13 is in processing
+we delete ThirdParty_Info_Period5_13 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period5_15 is in processing
+we delete ThirdParty_Info_Period5_15 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period5_17 is in processing
+we delete ThirdParty_Info_Period5_17 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period6_2 is in processing
+ThirdParty_Info_Period6_3 is in processing
+ThirdParty_Info_Period6_4 is in processing
+ThirdParty_Info_Period6_5 is in processing
+ThirdParty_Info_Period6_6 is in processing
+ThirdParty_Info_Period6_7 is in processing
+ThirdParty_Info_Period6_8 is in processing
+ThirdParty_Info_Period6_9 is in processing
+ThirdParty_Info_Period6_10 is in processing
+ThirdParty_Info_Period6_11 is in processing
+ThirdParty_Info_Period6_12 is in processing
+ThirdParty_Info_Period6_13 is in processing
+ThirdParty_Info_Period6_14 is in processing
+ThirdParty_Info_Period6_15 is in processing
+ThirdParty_Info_Period6_16 is in processing
+ThirdParty_Info_Period6_17 is in processing
+ThirdParty_Info_Period7_1 is in processing
+we delete ThirdParty_Info_Period7_1 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period7_3 is in processing
+we delete ThirdParty_Info_Period7_3 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period7_5 is in processing
+we delete ThirdParty_Info_Period7_5 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period7_7 is in processing
+we delete ThirdParty_Info_Period7_7 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period7_9 is in processing
+we delete ThirdParty_Info_Period7_9 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period7_11 is in processing
+we delete ThirdParty_Info_Period7_11 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period7_13 is in processing
+we delete ThirdParty_Info_Period7_13 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period7_15 is in processing
+we delete ThirdParty_Info_Period7_15 because the maximum bin occupies more than 90%
+ThirdParty_Info_Period7_17 is in processing
+we delete ThirdParty_Info_Period7_17 because the maximum bin occupies more than 90%
+SocialNetwork_4 is in processing
+we delete SocialNetwork_4 because the maximum bin occupies more than 90%
+SocialNetwork_6 is in processing
+we delete SocialNetwork_6 because the maximum bin occupies more than 90%
+SocialNetwork_9 is in processing
+SocialNetwork_10 is in processing
+UserupdateInfo_7_freq is in processing
+we delete UserupdateInfo_7_freq because the maximum bin occupies more than 90%
+UserupdateInfo_7_avg_count is in processing
+we delete UserupdateInfo_7_avg_count because the maximum bin occupies more than 90%
+UserupdateInfo_7_HASBUYCAR is in processing
+UserupdateInfo_7_MARRIAGESTATUSID is in processing
+UserupdateInfo_7_PHONE is in processing
+UserupdateInfo_30_freq is in processing
+we delete UserupdateInfo_30_freq because the maximum bin occupies more than 90%
+UserupdateInfo_30_avg_count is in processing
+we delete UserupdateInfo_30_avg_count because the maximum bin occupies more than 90%
+UserupdateInfo_30_HASBUYCAR is in processing
+we delete UserupdateInfo_30_HASBUYCAR because the maximum bin occupies more than 90%
+UserupdateInfo_30_PHONE is in processing
+we delete UserupdateInfo_30_PHONE because the maximum bin occupies more than 90%
+UserupdateInfo_60_unique is in processing
+we delete UserupdateInfo_60_unique because the maximum bin occupies more than 90%
+UserupdateInfo_60_IDNUMBER is in processing
+we delete UserupdateInfo_60_IDNUMBER because the maximum bin occupies more than 90%
+UserupdateInfo_60_MARRIAGESTATUSID is in processing
+we delete UserupdateInfo_60_MARRIAGESTATUSID because the maximum bin occupies more than 90%
+UserupdateInfo_90_freq is in processing
+UserupdateInfo_90_unique is in processing
+we delete UserupdateInfo_90_unique because the maximum bin occupies more than 90%
+UserupdateInfo_90_IDNUMBER is in processing
+we delete UserupdateInfo_90_IDNUMBER because the maximum bin occupies more than 90%
+UserupdateInfo_90_MARRIAGESTATUSID is in processing
+we delete UserupdateInfo_90_MARRIAGESTATUSID because the maximum bin occupies more than 90%
+UserupdateInfo_120_freq is in processing
+UserupdateInfo_120_unique is in processing
+we delete UserupdateInfo_120_unique because the maximum bin occupies more than 90%
+UserupdateInfo_120_IDNUMBER is in processing
+we delete UserupdateInfo_120_IDNUMBER because the maximum bin occupies more than 90%
+UserupdateInfo_120_MARRIAGESTATUSID is in processing
+we delete UserupdateInfo_120_MARRIAGESTATUSID because the maximum bin occupies more than 90%
+UserupdateInfo_150_freq is in processing
+we delete UserupdateInfo_150_freq because the maximum bin occupies more than 90%
+UserupdateInfo_150_avg_count is in processing
+we delete UserupdateInfo_150_avg_count because the maximum bin occupies more than 90%
+UserupdateInfo_150_HASBUYCAR is in processing
+we delete UserupdateInfo_150_HASBUYCAR because the maximum bin occupies more than 90%
+UserupdateInfo_150_PHONE is in processing
+we delete UserupdateInfo_150_PHONE because the maximum bin occupies more than 90%
+UserupdateInfo_180_unique is in processing
+we delete UserupdateInfo_180_unique because the maximum bin occupies more than 90%
+UserupdateInfo_180_IDNUMBER is in processing
+we delete UserupdateInfo_180_IDNUMBER because the maximum bin occupies more than 90%
+UserupdateInfo_180_MARRIAGESTATUSID is in processing
+we delete UserupdateInfo_180_MARRIAGESTATUSID because the maximum bin occupies more than 90%
+LogInfo1_7_count is in processing
+we delete LogInfo1_7_count because the maximum bin occupies more than 90%
+LogInfo1_7_avg_count is in processing
+LogInfo2_7_count is in processing
+we delete LogInfo2_7_count because the maximum bin occupies more than 90%
+LogInfo2_7_avg_count is in processing
+LogInfo1_30_count is in processing
+we delete LogInfo1_30_count because the maximum bin occupies more than 90%
+LogInfo1_30_avg_count is in processing
+we delete LogInfo1_30_avg_count because the maximum bin occupies more than 90%
+LogInfo2_30_unique is in processing
+LogInfo2_30_avg_count is in processing
+LogInfo1_60_count is in processing
+we delete LogInfo1_60_count because the maximum bin occupies more than 90%
+LogInfo1_60_avg_count is in processing
+we delete LogInfo1_60_avg_count because the maximum bin occupies more than 90%
+LogInfo2_60_unique is in processing
+we delete LogInfo2_60_unique because the maximum bin occupies more than 90%
+LogInfo1_90_count is in processing
+we delete LogInfo1_90_count because the maximum bin occupies more than 90%
+LogInfo1_90_avg_count is in processing
+LogInfo2_90_count is in processing
+we delete LogInfo2_90_count because the maximum bin occupies more than 90%
+LogInfo2_90_avg_count is in processing
+LogInfo1_120_count is in processing
+we delete LogInfo1_120_count because the maximum bin occupies more than 90%
+LogInfo1_120_avg_count is in processing
+we delete LogInfo1_120_avg_count because the maximum bin occupies more than 90%
+LogInfo2_120_unique is in processing
+LogInfo2_120_avg_count is in processing
+we delete LogInfo2_120_avg_count because the maximum bin occupies more than 90%
+LogInfo1_150_unique is in processing
+LogInfo1_150_avg_count is in processing
+we delete LogInfo1_150_avg_count because the maximum bin occupies more than 90%
+LogInfo2_150_unique is in processing
+LogInfo2_150_avg_count is in processing
+we delete LogInfo2_150_avg_count because the maximum bin occupies more than 90%
+LogInfo1_180_unique is in processing
+LogInfo1_180_avg_count is in processing
+LogInfo2_180_count is in processing
+we delete LogInfo2_180_count because the maximum bin occupies more than 90%
+LogInfo2_180_avg_count is in processing
+UserInfo_1_encoding is in processing
+UserInfo_3_encoding is in processing
+WeblogInfo_13_encoding is in processing
+The number of original levels for WeblogInfo_13_encoding is less than or equal to max intervals
+we delete WeblogInfo_13_encoding because the maximum bin occupies more than 90%
+UserInfo_9_encoding is in processing
+UserInfo_14_encoding is in processing
+UserInfo_15_encoding is in processing
+UserInfo_16_encoding is in processing
+UserInfo_19_encoding is in processing
+UserInfo_23_encoding is in processing
+we delete UserInfo_23_encoding because the maximum bin occupies more than 90%
+WeblogInfo_19_encoding is in processing
+WeblogInfo_20_encoding is in processing
+WeblogInfo_29_encoding is in processing
+The number of original levels for WeblogInfo_29_encoding is less than or equal to max intervals
+we delete WeblogInfo_29_encoding because the maximum bin occupies more than 90%
+WeblogInfo_39_encoding is in processing
+we delete WeblogInfo_39_encoding because the maximum bin occupies more than 90%
+WeblogInfo_48_encoding is in processing
+we delete WeblogInfo_48_encoding because the maximum bin occupies more than 90%
+WeblogInfo_54_encoding is in processing
+The number of original levels for WeblogInfo_54_encoding is less than or equal to max intervals
+we delete WeblogInfo_54_encoding because the maximum bin occupies more than 90%
+WeblogInfo_19_encoding
+UserupdateInfo_7_PHONE
+UserInfo_6
+LogInfo1_90_avg_count
+UserInfo_5
+UserInfo_9_encoding
+UserInfo_14_encoding
+UserupdateInfo_7_HASBUYCAR
+WeblogInfo_20_encoding
+LogInfo1_180_avg_count
+UserupdateInfo_90_freq
+UserInfo_19_encoding
+ThirdParty_Info_Period3_10
+ThirdParty_Info_Period5_5
+WeblogInfo_21
+ThirdParty_Info_Period6_8
+ThirdParty_Info_Period6_9
+SocialNetwork_13
+ThirdParty_Info_Period5_2
+ThirdParty_Info_Period6_2
+ThirdParty_Info_Period6_3
+LogInfo2_30_unique
+WeblogInfo_2_mergeByBadRate
+ThirdParty_Info_Period6_6
+ThirdParty_Info_Period6_7
+ThirdParty_Info_Period6_4
+ThirdParty_Info_Period6_5
+LogInfo2_7_avg_count
+ThirdParty_Info_Period6_14
+ThirdParty_Info_Period6_15
+ThirdParty_Info_Period6_16
+ThirdParty_Info_Period6_17
+ThirdParty_Info_Period6_10
+ThirdParty_Info_Period6_11
+ThirdParty_Info_Period6_12
+ThirdParty_Info_Period6_13
+ThirdParty_Info_Period2_10
+UserupdateInfo_7_MARRIAGESTATUSID
+ThirdParty_Info_Period4_10
+ThirdParty_Info_Period1_10
+UserupdateInfo_120_freq
+LogInfo1_7_avg_count
+LogInfo2_90_avg_count
+LogInfo2_30_avg_count
+UserInfo_16_encoding
+LogInfo2_150_unique
+LogInfo1_150_unique
+LogInfo2_180_avg_count
+UserInfo_3_encoding
+ThirdParty_Info_Period5_10
+UserInfo_10
+UserInfo_12
+UserInfo_17
+SocialNetwork_9
+SocialNetwork_10
+UserInfo_1_encoding
+LogInfo2_120_unique
+UserInfo_15_encoding
+LogInfo1_180_unique
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_9_WOE is 0.851648685793
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_5_WOE is 0.809076794667
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_16_WOE is 0.812504038007
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_14_WOE is 0.809161423681
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_8_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_2_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_3_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_6_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_7_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_4_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_15_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_17_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_11_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_12_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period6_10_WOE and ThirdParty_Info_Period6_13_WOE is 0.805575510178
+the correlation coeffient between ThirdParty_Info_Period5_2_WOE and ThirdParty_Info_Period5_5_WOE is 0.669495655527
+the correlation coeffient between ThirdParty_Info_Period5_10_WOE and ThirdParty_Info_Period4_10_WOE is 0.619236934858
+Optimization terminated successfully.
+         Current function value: 0.244872
+         Iterations 8
+Optimization terminated successfully.
+         Current function value: 0.244875
+         Iterations 8
+Optimization terminated successfully.
+         Current function value: 0.244891
+         Iterations 8
+Optimization terminated successfully.
+         Current function value: 0.246926
+         Iterations 8
+                           Logit Regression Results                           
+==============================================================================
+Dep. Variable:                 target   No. Observations:                30000
+Model:                          Logit   Df Residuals:                    29989
+Method:                           MLE   Df Model:                           10
+Date:                Fri, 28 Jul 2017   Pseudo R-squ.:                 0.05756
+Time:                        02:04:15   Log-Likelihood:                -7407.8
+converged:                       True   LL-Null:                       -7860.2
+                                        LLR p-value:                5.633e-188
+==================================================================================================
+                                     coef    std err          z      P>|z|      [95.0% Conf. Int.]
+--------------------------------------------------------------------------------------------------
+UserInfo_1_encoding_WOE           -1.0376      0.135     -7.706      0.000        -1.302    -0.774
+UserInfo_19_encoding_WOE          -0.9884      0.101     -9.798      0.000        -1.186    -0.791
+ThirdParty_Info_Period1_10_WOE    -0.7139      0.136     -5.232      0.000        -0.981    -0.446
+ThirdParty_Info_Period3_10_WOE    -0.2685      0.120     -2.244      0.025        -0.503    -0.034
+ThirdParty_Info_Period6_10_WOE    -0.6245      0.085     -7.383      0.000        -0.790    -0.459
+WeblogInfo_20_encoding_WOE        -0.9117      0.108     -8.409      0.000        -1.124    -0.699
+UserInfo_16_encoding_WOE          -0.9474      0.100     -9.504      0.000        -1.143    -0.752
+ThirdParty_Info_Period5_2_WOE     -0.6239      0.082     -7.591      0.000        -0.785    -0.463
+UserInfo_14_encoding_WOE          -1.2324      0.171     -7.209      0.000        -1.568    -0.897
+UserInfo_15_encoding_WOE          -0.5951      0.078     -7.628      0.000        -0.748    -0.442
+intercept                         -2.9270      0.040    -72.804      0.000        -3.006    -2.848
+==================================================================================================

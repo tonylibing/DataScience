@@ -28,12 +28,6 @@ from sklearn.linear_model import LogisticRegressionCV
 path= '/home/tanglek/workspace/DataScience/data/ppd/'
 
 
-
-####################################
-# Step 3: Group variables into bins#
-####################################
-#for each categorical variable, if it has distinct values more than 5, we use the ChiMerge to merge it
-
 trainData = pd.read_csv(path+'bank_default/allData_1b.csv',header = 0, encoding='gbk')
 allFeatures = list(trainData.columns)
 allFeatures.remove('ListingInfo')
@@ -163,9 +157,24 @@ for col in numerical_var:
 
 
 
+#trainData.to_csv(path+'bank_default/allData_2a.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
+
+# filewrite = open(path+'bank_default/var_WOE.pkl','w')
+# pickle.dump(var_WOE, filewrite)
+# filewrite.close()
+#
+#
+# filewrite = open(path+'bank_default/var_IV.pkl','w')
+# pickle.dump(var_IV, filewrite)
+# filewrite.close()
+#
+
 #########################################################
 # Step 4: Select variables with IV > 0.02 and assign WOE#
 #########################################################
+# var_WOE = pickle.load(open(path+'bank_default/var_WOE.pkl','r'))
+# var_IV = pickle.load(open(path+'bank_default/var_IV.pkl','r'))
+
 
 trainData = pd.read_csv(path+'bank_default/allData_2a.csv', header=0, encoding='gbk')
 
@@ -187,5 +196,160 @@ for col in var_WOE.keys():
     else:
         trainData[col2] = trainData[col].map(lambda x: var_WOE[col][str(x)])
 
-trainData.to_csv(path+'bank_default/allData_3.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
+# trainData.to_csv(path+'bank_default/allData_3.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
 
+
+
+
+
+### (i) select the features with IV above the thresould
+iv_threshould = 0.02
+varByIV = [k for k, v in var_IV.items() if v > iv_threshould]
+
+
+### (ii) check the collinearity of any pair of the features with WOE after (i)
+
+var_IV_selected = {k:var_IV[k] for k in varByIV}
+var_IV_sorted = sorted(var_IV_selected.iteritems(), key=lambda d:d[1], reverse = True)
+var_IV_sorted = [i[0] for i in var_IV_sorted]
+
+removed_var  = []
+roh_thresould = 0.6
+for i in range(len(var_IV_sorted)-1):
+    if var_IV_sorted[i] not in removed_var:
+        x1 = var_IV_sorted[i]+"_WOE"
+        for j in range(i+1,len(var_IV_sorted)):
+            if var_IV_sorted[j] not in removed_var:
+                x2 = var_IV_sorted[j] + "_WOE"
+                roh = np.corrcoef([trainData[x1], trainData[x2]])[0, 1]
+                if abs(roh) >= roh_thresould:
+                    print 'the correlation coeffient between {0} and {1} is {2}'.format(x1, x2, str(roh))
+                    if var_IV[var_IV_sorted[i]] > var_IV[var_IV_sorted[j]]:
+                        removed_var.append(var_IV_sorted[j])
+                    else:
+                        removed_var.append(var_IV_sorted[i])
+
+var_IV_sortet_2 = [i for i in var_IV_sorted if i not in removed_var]
+
+### (iii) check the multi-colinearity according to VIF > 10
+for i in range(len(var_IV_sortet_2)):
+    x0 = trainData[var_IV_sortet_2[i]+'_WOE']
+    x0 = np.array(x0)
+    X_Col = [k+'_WOE' for k in var_IV_sortet_2 if k != var_IV_sortet_2[i]]
+    X = trainData[X_Col]
+    X = np.matrix(X)
+    regr = LinearRegression()
+    clr= regr.fit(X, x0)
+    x_pred = clr.predict(X)
+    R2 = 1 - ((x_pred - x0) ** 2).sum() / ((x0 - x0.mean()) ** 2).sum()
+    vif = 1/(1-R2)
+    if vif > 10:
+        print "Warning: the vif for {0} is {1}".format(var_IV_sortet_2[i], vif)
+
+
+
+#############################################################################################################
+# Step 5: build the logistic regression using selected variables after single analysis and mulitple analysis#
+#############################################################################################################
+
+### (1) put all the features after single & multiple analysis into logisitic regression
+var_WOE_list = [i+'_WOE' for i in var_IV_sortet_2]
+y = trainData['target']
+X = trainData[var_WOE_list]
+X['intercept'] = [1]*X.shape[0]
+
+
+LR = sm.Logit(y, X).fit()
+summary = LR.summary()
+pvals = LR.pvalues
+pvals = pvals.to_dict()
+
+### Some features are not significant, so we need to delete feature one by one.
+varLargeP = {k: v for k,v in pvals.items() if v >= 0.1}
+varLargeP = sorted(varLargeP.iteritems(), key=lambda d:d[1], reverse = True)
+while(len(varLargeP) > 0 and len(var_WOE_list) > 0):
+    # In each iteration, we remove the most insignificant feature and build the regression again, until
+    # (1) all the features are significant or
+    # (2) no feature to be selected
+    varMaxP = varLargeP[0][0]
+    if varMaxP == 'intercept':
+        print 'the intercept is not significant!'
+        break
+    var_WOE_list.remove(varMaxP)
+    y = trainData['target']
+    X = trainData[var_WOE_list]
+    X['intercept'] = [1] * X.shape[0]
+
+    LR = sm.Logit(y, X).fit()
+    summary = LR.summary()
+    pvals = LR.pvalues
+    pvals = pvals.to_dict()
+    varLargeP = {k: v for k, v in pvals.items() if v >= 0.1}
+    varLargeP = sorted(varLargeP.iteritems(), key=lambda d: d[1], reverse=True)
+
+
+'''
+Now all the features are significant and the sign of coefficients are negative
+var_WOE_list = ['UserInfo_15_encoding_WOE', u'ThirdParty_Info_Period6_10_WOE', u'ThirdParty_Info_Period5_2_WOE', 'UserInfo_16_encoding_WOE', 'WeblogInfo_20_encoding_WOE',
+            'UserInfo_7_encoding_WOE', u'UserInfo_17_WOE', u'ThirdParty_Info_Period3_10_WOE', u'ThirdParty_Info_Period1_10_WOE', 'WeblogInfo_2_encoding_WOE',
+            'UserInfo_1_encoding_WOE']
+'''
+
+
+saveModel =open(path+'bank_default/LR_Model_Normal.pkl','w')
+pickle.dump(LR,saveModel)
+saveModel.close()
+
+
+
+######################################################################################################
+# Step 6(a): build the logistic regression using lasso and weights based on variables given in Step 5#
+######################################################################################################
+### use cross validation to select the best regularization parameter
+X = trainData[var_WOE_list]   #by default  LogisticRegressionCV() fill fit the intercept
+X = np.matrix(X)
+y = trainData['target']
+y = np.array(y)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=0)
+X_train.shape, y_train.shape
+
+model_parameter = {}
+for C_penalty in np.arange(0.005, 0.2,0.005):
+    for bad_weight in range(2, 101, 2):
+        LR_model_2 = LogisticRegressionCV(Cs=[C_penalty], penalty='l1', solver='liblinear', class_weight={1:bad_weight, 0:1})
+        LR_model_2_fit = LR_model_2.fit(X_train,y_train)
+        y_pred = LR_model_2_fit.predict_proba(X_test)[:,1]
+        scorecard_result = pd.DataFrame({'prob':y_pred, 'target':y_test})
+        performance = KS_AR(scorecard_result,'prob','target')
+        KS = performance['KS']
+        model_parameter[(C_penalty, bad_weight)] = KS
+
+####################################################################################
+# Step 6(b): build the logistic regression using according to RF feature importance#
+####################################################################################
+### build random forest model to estimate the importance of each feature
+### In this case we use the original feautures with WOE encoding before single analysis
+
+X = trainData[var_WOE_list]
+X = np.matrix(X)
+y = trainData['target']
+y = np.array(y)
+
+RFC = RandomForestClassifier()
+RFC_Model = RFC.fit(X,y)
+features_rfc = trainData[var_WOE_list].columns
+featureImportance = {features_rfc[i]:RFC_Model.feature_importances_[i] for i in range(len(features_rfc))}
+featureImportanceSorted = sorted(featureImportance.iteritems(),key=lambda x: x[1], reverse=True)
+# we selecte the top 10 features
+features_selection = [k[0] for k in featureImportanceSorted[:10]]
+
+y = trainData['target']
+X = trainData[features_selection]
+X['intercept'] = [1]*X.shape[0]
+
+
+LR = sm.Logit(y, X).fit()
+summary = LR.summary()
+
+print summary
