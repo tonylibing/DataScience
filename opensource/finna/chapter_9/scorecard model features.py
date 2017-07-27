@@ -353,6 +353,10 @@ filewrite.close()
 #########################################################
 # Step 4: Select variables with IV > 0.02 and assign WOE#
 #########################################################
+# var_WOE = pickle.load(open(path+'bank_default/var_WOE.pkl','r'))
+# var_IV = pickle.load(open(path+'bank_default/var_IV.pkl','r'))
+
+
 trainData = pd.read_csv(path+'bank_default/allData_2a.csv', header=0, encoding='gbk')
 
 num2str = ['SocialNetwork_13','SocialNetwork_12','UserInfo_6','UserInfo_5','UserInfo_10','UserInfo_17','city_match']
@@ -369,9 +373,9 @@ for col in var_WOE.keys():
         if - 1 in cutOffPoints:
             special_attribute = [-1]
         binValue = trainData[col].map(lambda x: AssignBin(x, cutOffPoints,special_attribute=special_attribute))
-        trainData[col2] = binValue.map(lambda x: var_WOE[col][x])
+        trainData[col2] = binValue.map(lambda x: var_WOE[col][str(x)])
     else:
-        trainData[col2] = trainData[col].map(lambda x: var_WOE[col][x])
+        trainData[col2] = trainData[col].map(lambda x: var_WOE[col][str(x)])
 
 trainData.to_csv(path+'bank_default/allData_3.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
 

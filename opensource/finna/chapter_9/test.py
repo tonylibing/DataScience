@@ -25,76 +25,8 @@ from sklearn.linear_model import LogisticRegressionCV
 #Step 0: Initiate the data processing work, including reading csv files, checking the consistency of Idx#
 #########################################################################################################
 #path= 'D:/workspace/DataScience/data/ppd/'
-path= '~/workspace/DataScience/data/ppd/'
+path= '/home/tanglek/workspace/DataScience/data/ppd/'
 
-
-
-
-##################################################################################
-# Step 2: Makeup missing value for categorical variables and continuous variables#
-##################################################################################
-allData = pd.read_csv(path+'bank default/allData_0.csv',header = 0,encoding = 'gbk')
-allFeatures = list(allData.columns)
-allFeatures.remove('ListingInfo')
-allFeatures.remove('target')
-allFeatures.remove('Idx')
-
-#check columns and remove them if they are a constant
-for col in allFeatures:
-    if len(set(allData[col])) == 1:
-        del allData[col]
-        allFeatures.remove(col)
-
-#devide the whole independent variables into categorical type and numerical type
-numerical_var = []
-for var in allFeatures:
-    uniq_vals = list(set(allData[var]))
-    if np.nan in uniq_vals:
-        uniq_vals.remove( np.nan)
-    if len(uniq_vals) >= 10 and isinstance(uniq_vals[0],numbers.Real):
-        numerical_var.append(var)
-
-categorical_var = [i for i in allFeatures if i not in numerical_var]
-
-
-
-'''
-For each categorical variable, if the missing value occupies more than 50%, we remove it.
-Otherwise we will use missing as a special status
-'''
-missing_pcnt_threshould_1 = 0.5
-for col in categorical_var:
-    missingRate = MissingCategorial(allData,col)
-    print '{0} has missing rate as {1}'.format(col,missingRate)
-    if missingRate > missing_pcnt_threshould_1:
-        categorical_var.remove(col)
-        del allData[col]
-    if 0 < missingRate < missing_pcnt_threshould_1:
-        allData[col] = allData[col].map(lambda x: str(x).upper())
-
-
-'''
-For continuous variable, if the missing value is more than 30%, we remove it.
-Otherwise we use random sampling method to make up the missing
-'''
-missing_pcnt_threshould_2 = 0.3
-for col in numerical_var:
-    missingRate = MissingContinuous(allData, col)
-    print '{0} has missing rate as {1}'.format(col, missingRate)
-    if missingRate > missing_pcnt_threshould_2:
-        numerical_var.remove(col)
-        del allData[col]
-        print 'we delete variable {} because of its high missing rate'.format(col)
-    else:
-        if missingRate > 0:
-            not_missing = allData.loc[allData[col] == allData[col]][col]
-            value = not_missing.median()
-            allData[col]=allData[col].fillna(value)
-            missingRate2 = MissingContinuous(allData, col)
-            print 'missing rate after making up is:{}'.format(str(missingRate2))
-
-
-allData.to_csv(path+'bank default/allData_1b.csv', header=True,encoding='gbk', columns = allData.columns, index=False)
 
 
 ####################################
@@ -102,7 +34,7 @@ allData.to_csv(path+'bank default/allData_1b.csv', header=True,encoding='gbk', c
 ####################################
 #for each categorical variable, if it has distinct values more than 5, we use the ChiMerge to merge it
 
-trainData = pd.read_csv(path+'bank default/allData_1b.csv',header = 0, encoding='gbk')
+trainData = pd.read_csv(path+'bank_default/allData_1b.csv',header = 0, encoding='gbk')
 allFeatures = list(trainData.columns)
 allFeatures.remove('ListingInfo')
 allFeatures.remove('target')
@@ -231,4 +163,29 @@ for col in numerical_var:
 
 
 
-trainData.to_csv(path+'bank default/allData_2a.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
+#########################################################
+# Step 4: Select variables with IV > 0.02 and assign WOE#
+#########################################################
+
+trainData = pd.read_csv(path+'bank_default/allData_2a.csv', header=0, encoding='gbk')
+
+num2str = ['SocialNetwork_13','SocialNetwork_12','UserInfo_6','UserInfo_5','UserInfo_10','UserInfo_17','city_match']
+for col in num2str:
+    trainData[col] = trainData[col].map(lambda x: str(x))
+
+
+for col in var_WOE.keys():
+    print col
+    col2 = str(col)+"_WOE"
+    if col in var_cutoff.keys():
+        cutOffPoints = var_cutoff[col]
+        special_attribute = []
+        if - 1 in cutOffPoints:
+            special_attribute = [-1]
+        binValue = trainData[col].map(lambda x: AssignBin(x, cutOffPoints,special_attribute=special_attribute))
+        trainData[col2] = binValue.map(lambda x: var_WOE[col][str(x)])
+    else:
+        trainData[col2] = trainData[col].map(lambda x: var_WOE[col][str(x)])
+
+trainData.to_csv(path+'bank_default/allData_3.csv', header=True,encoding='gbk', columns = trainData.columns, index=False)
+
