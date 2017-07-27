@@ -458,7 +458,7 @@ while(len(varLargeP) > 0 and len(var_WOE_list) > 0):
         break
     var_WOE_list.remove(varMaxP)
     y = trainData['target']
-    X = trainData[var_WOE]
+    X = trainData[var_WOE_list]
     X['intercept'] = [1] * X.shape[0]
 
     LR = sm.Logit(y, X).fit()
