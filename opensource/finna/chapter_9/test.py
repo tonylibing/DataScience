@@ -9,6 +9,7 @@ from itertools import combinations
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import train_test_split
+from sklearn.metrics import *
 import statsmodels.api as sm
 import sys
 import pickle
@@ -293,3 +294,10 @@ KS = performance['KS']
 model_parameter[(C_penalty, bad_weight)] = KS
 
 print model_parameter
+
+pred_y = LR_model_2_fit.predict(X_test)
+pred_score_y = LR_model_2_fit.predict_proba(X_test)[:, 1]
+auc = roc_auc_score(y, pred_score_y)
+accuracy = accuracy_score(y_test, pred_y)
+cm = confusion_matrix(y_test, pred_y)
+print 'training:', auc, accuracy, cm
