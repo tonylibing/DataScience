@@ -9,6 +9,7 @@ from itertools import combinations
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import train_test_split
+from sklearn.metrics import *
 import statsmodels.api as sm
 import sys
 import pickle
@@ -381,7 +382,7 @@ trainData.to_csv(path+'bank_default/allData_3.csv', header=True,encoding='gbk', 
 
 
 
-
+trainData = pd.read_csv(path+'bank_default/allData_3.csv', header=True, encoding='gbk')
 
 ### (i) select the features with IV above the thresould
 iv_threshould = 0.02
@@ -445,6 +446,10 @@ summary = LR.summary()
 pvals = LR.pvalues
 pvals = pvals.to_dict()
 
+print summary
+print np.exp(LR.params)
+
+
 ### Some features are not significant, so we need to delete feature one by one.
 varLargeP = {k: v for k,v in pvals.items() if v >= 0.1}
 varLargeP = sorted(varLargeP.iteritems(), key=lambda d:d[1], reverse = True)
@@ -482,11 +487,22 @@ pickle.dump(LR,saveModel)
 saveModel.close()
 
 
+with open(path+'bank_default/var_woe_list.pkl','w') as saveParam:
+    pickle.dump(var_WOE_list,saveParam)
+
+
+
+
 
 ######################################################################################################
 # Step 6(a): build the logistic regression using lasso and weights based on variables given in Step 5#
 ######################################################################################################
 ### use cross validation to select the best regularization parameter
+var_WOE_list = list()
+with open(path+'bank_default/var_woe_list.pkl','r') as saveParam:
+    var_WOE_list = pickle.load(saveParam)
+
+
 X = trainData[var_WOE_list]   #by default  LogisticRegressionCV() fill fit the intercept
 X = np.matrix(X)
 y = trainData['target']
@@ -505,6 +521,35 @@ for C_penalty in np.arange(0.005, 0.2,0.005):
         performance = KS_AR(scorecard_result,'prob','target')
         KS = performance['KS']
         model_parameter[(C_penalty, bad_weight)] = KS
+
+
+print model_parameter
+
+
+#
+# lrcv = LogisticRegression(C=self.model_parameters['C'], penalty=self.model_parameters['penalty'], tol=1e-4,
+#                           solver='liblinear', verbose=self.model_parameters['debug'], random_state=1)
+# lrcv.fit(x, y)
+# pred_y = lrcv.predict(x)
+# pred_score_y = lrcv.predict_proba(x)[:, 1]
+# df[self.name] = pred_score_y
+# auc = roc_auc_score(y, pred_score_y)
+# accuracy = accuracy_score(y, pred_y)
+# cm = confusion_matrix(y, pred_y)
+# print 'training:', auc, accuracy, cm
+# self.model = lrcv
+
+
+# LR.
+#
+# lr = LogisticRegression(C=params['C'], penalty=params['penalty'], tol=1e-4, solver=params['solver'], verbose=1)
+# model = lr.fit(x, y)
+# y_pred = model.predict(x)
+# y_pred_score = model.predict_proba(x)[:, 1]
+# cm = confusion_matrix(y, y_pred)
+# acc = (cm[1, 1] / float(cm[1, :].sum()))
+# print acc
+# return lr, cm, acc, y_pred, y_pred_score
 
 ####################################################################################
 # Step 6(b): build the logistic regression using according to RF feature importance#
@@ -532,6 +577,25 @@ X['intercept'] = [1]*X.shape[0]
 
 LR = sm.Logit(y, X).fit()
 summary = LR.summary()
+
+
+#calc ROC
+# data['pred'] = LR.predict(testData[features_selection])
+#
+# fpr, tpr, thresholds =roc_curve(data['admit'], data['pred'])
+# roc_auc = auc(fpr, tpr)
+# print("Area under the ROC curve : %f" % roc_auc)
+#
+
+
+
+
+
+
+
+
+
+
 """
                            Logit Regression Results
 ==============================================================================
@@ -558,8 +622,3 @@ ThirdParty_Info_Period5_10_WOE    -0.4018      0.100     -4.017      0.000      
 intercept                         -2.5382      0.024   -107.939      0.000      -2.584      -2.492
 ==================================================================================================
 """
-
-
-
-
-
