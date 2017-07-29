@@ -285,7 +285,8 @@ X_train.shape, y_train.shape
 C_penalty = 0.1
 bad_weight = 100
 model_parameter = {}
-LR_model_2 = LogisticRegressionCV(Cs=[C_penalty], penalty='l1', solver='liblinear', class_weight={1: bad_weight, 0: 1})
+# LR_model_2 = LogisticRegressionCV(Cs=[C_penalty], penalty='l1', solver='liblinear', class_weight={1: bad_weight, 0: 1})
+LR_model_2 = LogisticRegressionCV(Cs=[C_penalty], penalty='l1', solver='liblinear', class_weight='balanced')
 LR_model_2_fit = LR_model_2.fit(X_train, y_train)
 y_pred = LR_model_2_fit.predict_proba(X_test)[:, 1]
 scorecard_result = pd.DataFrame({'prob': y_pred, 'target': y_test})
@@ -295,9 +296,16 @@ model_parameter[(C_penalty, bad_weight)] = KS
 
 print model_parameter
 
+# {(0.1, 100): 0.28847782319565618}
+
+
 pred_y = LR_model_2_fit.predict(X_test)
 pred_score_y = LR_model_2_fit.predict_proba(X_test)[:, 1]
-auc = roc_auc_score(y, pred_score_y)
+auc = roc_auc_score(y_test, pred_score_y)
 accuracy = accuracy_score(y_test, pred_y)
 cm = confusion_matrix(y_test, pred_y)
 print 'training:', auc, accuracy, cm
+
+# training: 0.694841217741 0.633166666667
+# [[7011 4064]
+#  [ 338  587]]
