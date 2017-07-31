@@ -22,8 +22,24 @@ import pandas_column_utilities
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import processor
+reload(processor)
+from processor import *
+
+
 
 classification_model= reload(classification_model)
+
+path= '/home/tanglek/workspace/DataScience/data/ppd/'
+data1 = pd.read_csv(path+'Training Set/PPD_LogInfo_3_1_Training_Set.csv', header = 0)
+data2 = pd.read_csv(path+'Training Set/PPD_Training_Master_GBK_3_1_Training_Set.csv', header = 0,encoding = 'gbk')
+data3 = pd.read_csv(path+'Training Set/PPD_Userupdate_Info_3_1_Training_Set.csv', header = 0)
+
+def process_data(df):
+    data_pip = Pipeline([('drop_missing',DropColumnTransformer()),
+                         ('drop_row',RowMissingDroperTransformer())])
+
+
 
 #features with date, category manipulation without feature importance
 def get_basic_features(df, ordinal, categorical,date_manip ,cont):

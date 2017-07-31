@@ -46,11 +46,34 @@ def ColumnSummary(df):
     all.to_csv('colummn_summary.csv')
     return all
 
+
+class DataProcessor(BaseEstimator):
+    def __init__(self, df):
+        self.df = df
+        self.collumn_summray = None
+        self.transformers = None
+        self.feature_matrix = None
+
+
+    def fit(self, *_):
+        self.collumn_summray = ColumnSummary(self.df)
+        return self
+
+    def transform(self, X):
+        return X[self.columns]
+
+    def persist(self):
+        pass
+
+    def load(self):
+        pass
+
+
 class ColumnExtractor(TransformerMixin):
     def __init__(self, columns):
         self.columns = columns
 
-    def fit(self, X, y):
+    def fit(self, *_):
         return self
 
     def transform(self, X):
@@ -309,6 +332,28 @@ class RowMissingDroperTransformer(TransformerMixin):
     def fit(self, *_):
         return self
 
+class ImportantColMissingDropTransformer(TransformerMixin):
+    #columns selected according to feature importance
+    def __init__(self,  columns=None,threshold = 95):
+        self.columns = columns
+        self.threshold = threshold
+
+    def transform(self,df):
+        if self.columns==None:
+            row_missing = df.isnull().sum(axis=1)
+            diff = (100 - self.threshold) / 2.0
+            minval, maxval = np.percentile(row_missing, [diff, 100 - diff])
+            return df.drop(row_missing.index[row_missing>maxval],axis=0,inplace = False)
+        else:
+            row_missing = df[self.columns].isnull().sum(axis=1)
+            diff = (100 - self.threshold) / 2.0
+            minval, maxval = np.percentile(row_missing, [diff, 100 - diff])
+            return df.drop(row_missing.index[row_missing>maxval],axis=0,inplace = False)
+
+
+    def fit(self, *_):
+        return self
+
 
 class ImputingMissingTransformer(TransformerMixin):
     def __init__(self, transformer, empty_values = [float('nan'), np.NaN, None]):
@@ -347,12 +392,13 @@ def ProcessExtremeAndMissingTransformer(TransformerMixin):
         #copy the original value from col to protect the original dataframe
         missingList = [i for i in df[col]]
         if type == 'Continuous':
-            if method not in ['Mean','Random']:
+            if method not in ['Mean','Random','Median']:
                 return 'Please specify the correct treatment method for missing continuous variable!'
             #get the descriptive statistics of col
             descStats = validDf[col].describe()
             mu = descStats['mean']
             std = descStats['std']
+            median = validDf[col].median()
             maxVal = descStats['max']
             #detect the extreme value using 3-sigma method
             if maxVal > mu+3*std:
@@ -389,7 +435,7 @@ def ProcessExtremeAndMissingTransformer(TransformerMixin):
                     if method == 'Mode':
                         missingList[i] = modeVal
                     if method == 'Random':
-                        #determine the sampled category using unifor distributed random variable
+                        #determine the sampled category using uniform distributed random variable
                         a = random.random(1)
                         position = [k+1 for k in range(len(freqCumsum)-1) if freqCumsum[k]<a<=freqCumsum[k+1]][0]
                         missingList[i] = freqTuple[position-1][0]
