@@ -332,6 +332,35 @@ class RowMissingDroperTransformer(TransformerMixin):
     def fit(self, *_):
         return self
 
+class LowerTransformer(TransformerMixin):
+    def __init__(self,  columns):
+        self.columns = columns
+
+    def transform(self,df):
+        for col in self.columns:
+            df[col] = df[col].map(lambda x:x.lower())
+
+        return df
+
+
+    def fit(self, *_):
+        return self
+
+class StripTransformer(TransformerMixin):
+    def __init__(self,  columns):
+        self.columns = columns
+
+    def transform(self,df):
+        for col in self.columns:
+            df[col] = df[col].map(lambda x:x.strip())
+
+        return df
+
+
+    def fit(self, *_):
+        return self
+
+
 class ImportantColMissingDropTransformer(TransformerMixin):
     #columns selected according to feature importance
     def __init__(self,  columns=None,threshold = 95):

@@ -10,15 +10,6 @@ from sklearn.svm import LinearSVC
 from sklearn.cross_validation import train_test_split
 from sklearn.preprocessing import PolynomialFeatures
 
-import date_transformer
-import imputing_transformer
-import column_extractor
-import categorical_transformer
-import cleanup_transformer
-import ModelTransformer
-import classification_model
-import pandas_column_utilities
-
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -29,15 +20,25 @@ from processor import *
 
 
 classification_model= reload(classification_model)
-
-path= '/home/tanglek/workspace/DataScience/data/ppd/'
+path= 'D:/workspace/DataScience/data/ppd/'
+#path= '/home/tanglek/workspace/DataScience/data/ppd/'
 data1 = pd.read_csv(path+'Training Set/PPD_LogInfo_3_1_Training_Set.csv', header = 0)
 data2 = pd.read_csv(path+'Training Set/PPD_Training_Master_GBK_3_1_Training_Set.csv', header = 0,encoding = 'gbk')
 data3 = pd.read_csv(path+'Training Set/PPD_Userupdate_Info_3_1_Training_Set.csv', header = 0)
 
 def process_data(df):
-    data_pip = Pipeline([('drop_missing',DropColumnTransformer()),
+    data1_pip = Pipeline([('drop_missing',DropColumnTransformer()),
                          ('drop_row',RowMissingDroperTransformer())])
+
+    data3_pip = Pipeline([('lower_string',LowerTransformer('UserupdateInfo1'))])
+
+    data2_pip = Pipeline([('lower_string',StripTransformer('UserInfo_9'))])
+
+    d1=data1_pip.fit(data1)
+    d2 = data2_pip.fit(data2)
+    d3=data3_pip.fit(data3)
+
+
 
 
 
