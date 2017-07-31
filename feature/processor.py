@@ -9,7 +9,7 @@ import random
 import operator
 import numbers
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.cross_validation import train_test_split
 from sklearn.preprocessing import Imputer
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import datetime
@@ -258,6 +258,53 @@ class OrdinalTransformer(TransformerMixin):
             X_1[col] = X_1[col].map(lambda x : x.lower() if (type(x) == str) else x)
             X_1[col] = X_1[col].map(lambda x : mp[x] if x in mp else float('nan'))
         return X_1
+
+    def fit(self, *_):
+        return self
+
+class DropColumnTransformer(TransformerMixin):
+    def __init__(self, columns, missing_threshold=0.9, dev_threshold = 0.1):
+        self.columns = columns
+        self.missing_threshold = missing_threshold
+        self.dev_threshold = dev_threshold
+
+    def transform(self,df):
+        column_info = pd.DataFrame([(ColumnInfo(df, col)) for col in df.columns.values])
+        column_info.columns = ['col_name', 'ColumnType', 'missing_pct']
+        summary = df.describe(include='all').transpose()
+        summary = summary.reset_index()
+        print summary.columns
+        all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
+        misssing_too_much_cols = all.loc[all['missing_pct']>self.missing_threshold]['col_name'].values.tolist()
+        for i in misssing_too_much_cols:
+            print 'drop column {0} due to missing percentage'.format(i)
+
+        low_variance_cols =   all.loc[all['std']<self.dev_threshold]['col_name'].values.tolist()
+        for i in low_variance_cols:
+            print 'drop column {0} due to low variance'.format(i)
+
+        drop_cols = misssing_too_much_cols + low_variance_cols
+        return df.drop(drop_cols,axis = 1,inplace=False)
+
+    def fit(self, *_):
+        return self
+
+class RowMissingDroperTransformer(TransformerMixin):
+    def __init__(self,  threshold = 95):
+        self.threshold = threshold
+
+    def transform(self,df):
+        #method 1
+        row_missing = df.isnull().sum(axis=1)
+        diff = (100 - self.threshold) / 2.0
+        minval, maxval = np.percentile(row_missing, [diff, 100 - diff])
+        #method 2
+        # row_missing = df.isnull().sum(axis=1)
+        # q1,median,q2 = np.percentile(row_missing, [0.25,0.5,0.75])
+        # #bug when q1=median=q2=0
+        # maxval = median+(q2-q1)*1.0/3
+        return df.drop(row_missing.index[row_missing>maxval],axis=0,inplace = False)
+
 
     def fit(self, *_):
         return self
