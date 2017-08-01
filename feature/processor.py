@@ -347,13 +347,17 @@ class LowerTransformer(TransformerMixin):
         return self
 
 class StripTransformer(TransformerMixin):
-    def __init__(self,  columns):
+    def __init__(self,  columns, strip_str = None):
         self.columns = columns
+        self.strip_str = strip_str
 
     def transform(self,df):
-        for col in self.columns:
-            df[col] = df[col].map(lambda x:x.strip())
-
+        if self.strip_str==None:
+            for col in self.columns:
+                df[col] = df[col].map(lambda x:x.strip())
+        else:
+            for col in self.columns:
+                df[col] = df[col].map(lambda x:x.strip(self.strip_str))
         return df
 
 

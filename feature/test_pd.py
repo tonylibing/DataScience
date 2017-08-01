@@ -17,9 +17,63 @@ import processor
 reload(processor)
 from processor import *
 
+class LogInfoFeature(TransformerMixin):
+    #Idx,logTimes,logDays,logDayGap,logGapAVG,mostCountCode,leastCountCode,mostCountCate,leastCountCate,codeEntropy,cateEntropy,logDuration
+    def transform(self, df):
+        df['logInfo'] = df['LogInfo3'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
+        df['Listinginfo'] = df['Listinginfo1'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
+        df['ListingGap'] = df[['logInfo', 'Listinginfo']].apply(lambda x: (x[1] - x[0]).days, axis=1)
+
+        return df
 
 
-classification_model= reload(classification_model)
+    def fit(self, *_):
+        return self
+
+
+class UpdateInfoFeature(TransformerMixin):
+    #Idx,ListingInfo1,UserupdateInfo1,UserupdateInfo2
+    # Idx, updateTimes, updateDays, updateDayGap, updateGapAVG, mostCountInfo, leastCountInfo, infoEntropy, infoUpdateDuration
+    def transform(self, df):
+        df['ListingInfo'] = df['ListingInfo1'].map(lambda x: datetime.datetime.strptime(x, '%Y/%m/%d'))
+        df['UserupdateInfo'] = df['UserupdateInfo2'].map(lambda x: datetime.datetime.strptime(x, '%Y/%m/%d'))
+        data3GroupbyIdx = pd.DataFrame({'Idx': df['Idx'].drop_duplicates()})
+        # items = set(df['UserupdateInfo1'].values)
+        time_window = [7, 30, 60, 90, 120, 150, 180]
+        for tw in time_window:
+            df['TruncatedLogInfo'] = df['ListingInfo'].map(lambda x: x + datetime.timedelta(-tw))
+            temp = df.loc[df['UserupdateInfo'] >= df['TruncatedLogInfo']]
+
+            # frequency of updating
+            freq_stats = temp.groupby(['Idx'])['UserupdateInfo1'].count().to_dict()
+            data3GroupbyIdx['UserupdateInfo_' + str(tw) + '_freq'] = data3GroupbyIdx['Idx'].map(
+                lambda x: freq_stats.get(x, 0))
+
+            # number of updated types
+            Idx_UserupdateInfo1 = temp[['Idx', 'UserupdateInfo1']].drop_duplicates()
+            uniq_stats = Idx_UserupdateInfo1.groupby(['Idx'])['UserupdateInfo1'].count().to_dict()
+            data3GroupbyIdx['UserupdateInfo_' + str(tw) + '_unique'] = data3GroupbyIdx['Idx'].map(
+                lambda x: uniq_stats.get(x, 0))
+
+            # average count of each type
+            data3GroupbyIdx['UserupdateInfo_' + str(tw) + '_avg_count'] = data3GroupbyIdx[
+                ['UserupdateInfo_' + str(tw) + '_freq', 'UserupdateInfo_' + str(tw) + '_unique']]. \
+                apply(lambda x: x[0] * 1.0 / x[1], axis=1)
+
+            Idx_UserupdateInfo1_V2 = Idx_UserupdateInfo1.assign(update_cnt = 1).set_index(["Idx", "UserupdateInfo1"]).unstack("UserupdateInfo1").fillna(0)
+            Idx_UserupdateInfo1_V2.columns = [ x[0]+x[1]+str(tw) for x in Idx_UserupdateInfo1_V2.columns.values.tolist()]
+            Idx_UserupdateInfo1_V2.reset_index(inplace=True)
+            data3GroupbyIdx=pd.merge(data3GroupbyIdx, Idx_UserupdateInfo1_V2, on='Idx', how='left')
+
+        return data3GroupbyIdx
+
+
+    def fit(self, *_):
+        return self
+
+
+
+# classification_model= reload(classification_model)
 path= 'D:/workspace/DataScience/data/ppd/'
 #path= '/home/tanglek/workspace/DataScience/data/ppd/'
 data1 = pd.read_csv(path+'Training Set/PPD_LogInfo_3_1_Training_Set.csv', header = 0)
@@ -30,9 +84,10 @@ def process_data(df):
     data1_pip = Pipeline([('drop_missing',DropColumnTransformer()),
                          ('drop_row',RowMissingDroperTransformer())])
 
-    data3_pip = Pipeline([('lower_string',LowerTransformer('UserupdateInfo1'))])
+    data2_pip = Pipeline([('lower_string', StripTransformer('UserInfo_9'))])
 
-    data2_pip = Pipeline([('lower_string',StripTransformer('UserInfo_9'))])
+    data3_pip = Pipeline([('lower_string',LowerTransformer('UserupdateInfo1')),
+                          ('strip_city',StripTransformer(['UserInfo_9'],'市'))])
 
     d1=data1_pip.fit(data1)
     d2 = data2_pip.fit(data2)
