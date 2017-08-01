@@ -23,17 +23,28 @@ class LogInfoFeature(TransformerMixin):
         df['logInfo'] = df['LogInfo3'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
         df['Listinginfo'] = df['Listinginfo1'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
         df['ListingGap'] = df[['logInfo', 'Listinginfo']].apply(lambda x: (x[1] - x[0]).days, axis=1)
+        df['LogAction'] = df[['LogInfo1','LogInfo2']].apply(lambda x:'_'.join(x),axis=1)
+        action_cnt = df.groupby(['Idx','LogAction'])['LogInfo3'].count().unstack('LogAction').fillna(0)
+        action_cnt.columns = ['action_cnt_' + x  for x in action_cnt.columns.values.tolist()]
+        action_cnt.reset_index(inplace=True)
+
+        LogTimes = df.groupby(['Idx'])['LogInfo3'].count()
+        LogTimes.columns=['logTimes']
+        LogTimes.reset_index(inplace=True)
+
+        LogDays = df.groupby(['Idx'])['LogInfo3'].nunique()
+        LogDays.columns=['logDays']
+        LogDays.reset_index(inplace=True)
+
 
         return df
-
 
     def fit(self, *_):
         return self
 
-
 class UpdateInfoFeature(TransformerMixin):
     #Idx,ListingInfo1,UserupdateInfo1,UserupdateInfo2
-    # Idx, updateTimes, updateDays, updateDayGap, updateGapAVG, mostCountInfo, leastCountInfo, infoEntropy, infoUpdateDuration
+    #Idx, updateTimes, updateDays, updateDayGap, updateGapAVG, mostCountInfo, leastCountInfo, infoEntropy, infoUpdateDuration
     def transform(self, df):
         df['ListingInfo'] = df['ListingInfo1'].map(lambda x: datetime.datetime.strptime(x, '%Y/%m/%d'))
         df['UserupdateInfo'] = df['UserupdateInfo2'].map(lambda x: datetime.datetime.strptime(x, '%Y/%m/%d'))
@@ -60,9 +71,13 @@ class UpdateInfoFeature(TransformerMixin):
                 ['UserupdateInfo_' + str(tw) + '_freq', 'UserupdateInfo_' + str(tw) + '_unique']]. \
                 apply(lambda x: x[0] * 1.0 / x[1], axis=1)
 
-            Idx_UserupdateInfo1_V2 = Idx_UserupdateInfo1.assign(update_cnt = 1).set_index(["Idx", "UserupdateInfo1"]).unstack("UserupdateInfo1").fillna(0)
-            Idx_UserupdateInfo1_V2.columns = [ x[0]+x[1]+str(tw) for x in Idx_UserupdateInfo1_V2.columns.values.tolist()]
+            # Idx_UserupdateInfo1_V2 = Idx_UserupdateInfo1.assign(update_cnt = 1).set_index(["Idx", "UserupdateInfo1"]).unstack("UserupdateInfo1").fillna(0)
+            # Idx_UserupdateInfo1_V2.columns = [ x[0]+x[1]+str(tw) for x in Idx_UserupdateInfo1_V2.columns.values.tolist()]
+            # Idx_UserupdateInfo1_V2.reset_index(inplace=True)
+            Idx_UserupdateInfo1_V2 = temp.groupby(['Idx','UserupdateInfo1'])['UserupdateInfo2'].count().unstack('UserupdateInfo1').fillna(0)
+            Idx_UserupdateInfo1_V2.columns =  [ 'update_cnt'+x+'_'+str(tw) for x in Idx_UserupdateInfo1_V2.columns.values.tolist()]
             Idx_UserupdateInfo1_V2.reset_index(inplace=True)
+
             data3GroupbyIdx=pd.merge(data3GroupbyIdx, Idx_UserupdateInfo1_V2, on='Idx', how='left')
 
         return data3GroupbyIdx
@@ -70,8 +85,6 @@ class UpdateInfoFeature(TransformerMixin):
 
     def fit(self, *_):
         return self
-
-
 
 # classification_model= reload(classification_model)
 path= 'D:/workspace/DataScience/data/ppd/'
