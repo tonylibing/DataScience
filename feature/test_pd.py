@@ -36,6 +36,8 @@ class LogInfoFeature(TransformerMixin):
         LogDays.columns=['logDays']
         LogDays.reset_index(inplace=True)
 
+        logDayGap =  df.groupby(['Idx'])['LogInfo3'].max()
+
 
         return df
 
