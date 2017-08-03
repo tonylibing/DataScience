@@ -11,6 +11,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import *
 import statsmodels.api as sm
+import xgboost as xgb
 import sys
 import pickle
 reload(sys)
@@ -248,7 +249,7 @@ for i in range(len(var_IV_sortet_2)):
         print "Warning: the vif for {0} is {1}".format(var_IV_sortet_2[i], vif)
 
 
-
+trainData.to_csv(path+'bank default/trainData.csv',index=False,encoding='gbk')
 #############################################################################################################
 # Step 5: build the logistic regression using selected variables after single analysis and mulitple analysis#
 #############################################################################################################
@@ -298,7 +299,6 @@ print model_parameter
 
 # {(0.1, 100): 0.28847782319565618}
 
-
 pred_y = LR_model_2_fit.predict(X_test)
 pred_score_y = LR_model_2_fit.predict_proba(X_test)[:, 1]
 auc = roc_auc_score(y_test, pred_score_y)
@@ -309,3 +309,19 @@ print 'training:', auc, accuracy, cm
 # training: 0.694841217741 0.633166666667
 # [[7011 4064]
 #  [ 338  587]]
+
+negative,positive = trainData.groupby('target').count()['Idx']
+scale_pos_weight = negative*1.0/positive
+
+gbm = xgb.XGBClassifier(max_depth=12, n_estimators=30, learning_rate=0.1,
+                              subsample=0.8, colsample_bytree=0.7, max_delta_step=3,
+                              objective="binary:logistic", seed=999,scale_pos_weight=scale_pos_weight)
+
+gbm.fit(X,y)
+
+pred_y = gbm.predict_proba(X_test)
+pred_score_y = gbm.predict_proba(X_test)[:, 1]
+auc = roc_auc_score(y_test, pred_score_y)
+accuracy = accuracy_score(y_test, pred_y)
+cm = confusion_matrix(y_test, pred_y)
+print 'training:', auc, accuracy, cm
