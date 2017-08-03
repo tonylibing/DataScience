@@ -325,3 +325,6 @@ auc = roc_auc_score(y_test, pred_score_y)
 accuracy = accuracy_score(y_test, pred_y)
 cm = confusion_matrix(y_test, pred_y)
 print 'gbm training:', auc, accuracy, cm
+
+# gbm training: 0.907013605027 0.782416666667 [[8578 2497]
+#  [ 114  811]]
