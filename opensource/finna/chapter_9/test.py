@@ -304,7 +304,7 @@ pred_score_y = LR_model_2_fit.predict_proba(X_test)[:, 1]
 auc = roc_auc_score(y_test, pred_score_y)
 accuracy = accuracy_score(y_test, pred_y)
 cm = confusion_matrix(y_test, pred_y)
-print 'training:', auc, accuracy, cm
+print 'lr training:', auc, accuracy, cm
 
 # training: 0.694841217741 0.633166666667
 # [[7011 4064]
@@ -324,4 +324,4 @@ pred_score_y = gbm.predict_proba(X_test)[:, 1]
 auc = roc_auc_score(y_test, pred_score_y)
 accuracy = accuracy_score(y_test, pred_y)
 cm = confusion_matrix(y_test, pred_y)
-print 'training:', auc, accuracy, cm
+print 'gbm training:', auc, accuracy, cm
