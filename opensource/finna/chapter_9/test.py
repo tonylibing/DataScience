@@ -319,7 +319,7 @@ gbm = xgb.XGBClassifier(max_depth=12, n_estimators=30, learning_rate=0.1,
 
 gbm.fit(X,y)
 
-pred_y = gbm.predict_proba(X_test)
+pred_y = gbm.predict(X_test)
 pred_score_y = gbm.predict_proba(X_test)[:, 1]
 auc = roc_auc_score(y_test, pred_score_y)
 accuracy = accuracy_score(y_test, pred_y)
