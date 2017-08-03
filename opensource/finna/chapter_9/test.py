@@ -249,7 +249,7 @@ for i in range(len(var_IV_sortet_2)):
         print "Warning: the vif for {0} is {1}".format(var_IV_sortet_2[i], vif)
 
 
-trainData.to_csv(path+'bank default/trainData.csv',index=False,encoding='gbk')
+trainData.to_csv(path+'bank_default/trainData.csv',index=False,encoding='gbk')
 #############################################################################################################
 # Step 5: build the logistic regression using selected variables after single analysis and mulitple analysis#
 #############################################################################################################
