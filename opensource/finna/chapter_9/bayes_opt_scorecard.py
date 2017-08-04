@@ -25,7 +25,7 @@ from sklearn.linear_model import LogisticRegressionCV
 
 path= '/home/tanglek/workspace/DataScience/data/ppd/'
 
-trainData=pd.read_csv(path+'bank_default/trainData.csv',index=False,encoding='gbk')
+trainData=pd.read_csv(path+'bank_default/trainData.csv',encoding='gbk')
 
 var_WOE_list = pickle.load(open(path+'bank_default/var_WOE_list.pkl','r'))
 
@@ -63,8 +63,10 @@ xgbBO = BayesianOptimization(xgbcv,
     'min_child_weight':(1,40),
     'gamma':(0.05,1)
     })
+num_iter = 25
+init_points = 5
 
-xgbBO.maximize(niter=20)
+xgbBO.maximize(init_points=init_points, n_iter=num_iter)
 print('-'*53)
 print('Final Result')
 print('xgboost:%f' % xgbBO.res['max']['max_val'])
