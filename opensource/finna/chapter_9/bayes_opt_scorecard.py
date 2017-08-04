@@ -71,3 +71,7 @@ print('-'*53)
 print('Final Result')
 print('xgboost:%f' % xgbBO.res['max']['max_val'])
 print('xgboost:%s' % xgbBO.res['max']['max_params'])
+
+# Final Result
+# xgboost:0.902749
+# xgboost:{'colsample_bytree': 0.66272561328627511, 'learning_rate': 0.09156099963472944, 'min_child_weight': 1.0482321352908903, 'n_estimators': 99.962069818954291, 'subsample': 0.36195063022161922, 'max_depth': 11.699764521378645, 'gamma': 0.067422526986835915}
