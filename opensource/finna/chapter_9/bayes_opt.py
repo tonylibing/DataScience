@@ -8,9 +8,9 @@ import random
 from itertools import combinations
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection  import train_test_split
 from sklearn.metrics import *
-from sklearn.grid_search import GridSearchCV
+from sklearn.model_selection  import GridSearchCV
 from bayes_opt import BayesianOptimization
 import statsmodels.api as sm
 import xgboost as xgb
