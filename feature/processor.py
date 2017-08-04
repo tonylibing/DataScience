@@ -9,7 +9,7 @@ import random
 import operator
 import numbers
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import Imputer
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import datetime

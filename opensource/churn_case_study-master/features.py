@@ -7,7 +7,7 @@ from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.feature_selection import SelectFromModel
 from sklearn.linear_model import LinearRegression
 from sklearn.svm import LinearSVC
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import PolynomialFeatures
 
 import date_transformer

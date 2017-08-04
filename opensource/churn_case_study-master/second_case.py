@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.cross_validation import cross_val_score, train_test_split
+from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, roc_auc_score
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingRegressor
 from sklearn.grid_search import GridSearchCV
