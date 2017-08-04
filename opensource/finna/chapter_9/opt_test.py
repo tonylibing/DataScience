@@ -280,7 +280,7 @@ def xgbcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_ch
     gbm = xgb.XGBClassifier(max_depth=int(max_depth), n_estimators=int(n_estimators), learning_rate=learning_rate,
                             subsample=subsample, colsample_bytree=colsample_bytree, 
                             min_child_weight = min_child_weight, gamma = gamma, 
-                            objective="binary:logistic", seed=999,nthread=7,scale_pos_weight=scale_pos_weight)
+                            objective="binary:logistic", seed=999,nthread=5,scale_pos_weight=scale_pos_weight)
     gbm.fit(X,y)
     pred_y = gbm.predict(X_test)
     pred_score_y = gbm.predict_proba(X_test)[:, 1]
