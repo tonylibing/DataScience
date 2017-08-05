@@ -50,7 +50,10 @@ def xgbcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_ch
     pred_y = gbm.predict(X_test)
     pred_score_y = gbm.predict_proba(X_test)[:, 1]
     auc = roc_auc_score(y_test, pred_score_y)
-    with open('xgb_bayes_opt_results.txt','a') as f: f.write("max_depth:%f,n_estimators:%f,learning_rate:%f,subsample:%f,colsample_bytree:%f,min_child_weight:%f,gamma:%f,auc:%f\n"%(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_child_weight,gamma,auc))
+    scorecard_result = pd.DataFrame({'prob': pred_y, 'target': y_test})
+    performance = KS_AR(scorecard_result, 'prob', 'target')
+    KS = performance['KS']
+    with open('xgb_bayes_opt_results.txt','a') as f: f.write("max_depth:%f,n_estimators:%f,learning_rate:%f,subsample:%f,colsample_bytree:%f,min_child_weight:%f,gamma:%f,auc:%f,KS:%f\n"%(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_child_weight,gamma,auc,KS))
     return auc
 
 xgbBO = BayesianOptimization(xgbcv,
