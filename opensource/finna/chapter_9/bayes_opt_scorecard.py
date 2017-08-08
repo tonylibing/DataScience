@@ -72,7 +72,7 @@ def xgbfcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_c
                             subsample=subsample, colsample_bytree=colsample_bytree,
                             min_child_weight = min_child_weight, gamma = gamma,
                             objective="binary:logistic", seed=999,nthread=5,scale_pos_weight=scale_pos_weight)
-    scores = cross_val_score(gbm,X,y,scoring='roc_auc',cv=StratifiedKFold(5,shuffle=True))
+    scores = cross_val_score(gbm,X,y,scoring='roc_auc',cv=StratifiedKFold(3,shuffle=False))
     print scores
     return scores.mean()
 
@@ -96,11 +96,16 @@ print('Final Result')
 print('xgboost:%f' % xgbBO.res['max']['max_val'])
 print('xgboost:%s' % xgbBO.res['max']['max_params'])
 
-# StratifiedKFold cv
+# StratifiedKFold(5,shuffle=True) cv
 # Final Result
 # xgboost:0.681187
 # xgboost:{'colsample_bytree': 0.60410840574194091, 'learning_rate': 0.053154289795393717, 'min_child_weight': 27.171585489741449, 'n_estimators': 49.852454110263047, 'subsample': 0.44408010700744305, 'max_depth': 10.239885116586866, 'gamma': 0.96567380833757099}
 
+# StratifiedKFold(3,shuffle=False)
+# Final Result
+# xgboost:0.939819
+# xgboost:{'colsample_bytree': 0.77700860883714562, 'learning_rate': 0.098796944573766435, 'min_child_weight': 1.0, 'n_estimators': 90.684655134199701, 'subsample': 0.47733345993884213, 'max_depth': 12.0, 'gamma': 0.050000000000000003}
+#
 
 # train test split
 # Final Result
