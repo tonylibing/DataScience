@@ -45,7 +45,8 @@ X_train.shape, y_train.shape
 oversampler=SMOTEENN(random_state=2017)
 X_train_os,y_train_os=oversampler.fit_sample(X_train,y_train)
 print X_train_os.shape, y_train_os.shape
-# (33362, 14) (33362,)
+# (33362, 14) (33362,) smote
+# (29917, 14) (29917,) smoteenn
 
 negative,positive = trainData.groupby('target').count()['Idx']
 scale_pos_weight = negative*1.0/positive
@@ -67,3 +68,9 @@ print 'gbm training:', auc, accuracy, cm
 # gbm training: 0.633175313561 0.617
 # [[6902 4219]
 #  [ 377  502]]
+
+
+#smoteenn
+# gbm training: 0.633585375228 0.791666666667
+# [[9236 1885]
+#  [ 615  264]]
