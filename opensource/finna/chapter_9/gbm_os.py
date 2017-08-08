@@ -42,7 +42,7 @@ y = np.array(y)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=2017,stratify=y)
 X_train.shape, y_train.shape
 
-oversampler=SMOTE(random_state=2017)
+oversampler=SMOTEENN(random_state=2017)
 X_train_os,y_train_os=oversampler.fit_sample(X_train,y_train)
 print X_train_os.shape, y_train_os.shape
 # (33362, 14) (33362,)
@@ -63,7 +63,7 @@ accuracy = accuracy_score(y_test, pred_y)
 cm = confusion_matrix(y_test, pred_y)
 print 'gbm training:', auc, accuracy, cm
 
-#
+# smote
 # gbm training: 0.633175313561 0.617
 # [[6902 4219]
 #  [ 377  502]]
