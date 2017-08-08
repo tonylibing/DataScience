@@ -38,7 +38,7 @@ X = np.matrix(X)
 y = trainData['target']
 y = np.array(y)
 
-oversampler=SMOTE(random_state=2017)
+oversampler=SMOTEENN(random_state=2017)
 X_os,y_os=oversampler.fit_sample(X,y)
 print X_os.shape, y_os.shape
 
