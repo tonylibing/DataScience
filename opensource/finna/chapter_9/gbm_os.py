@@ -63,7 +63,7 @@ gbm = xgb.XGBClassifier(max_depth=12, n_estimators=30, learning_rate=0.1,
                               subsample=0.8, colsample_bytree=0.7, max_delta_step=3,
                               objective="binary:logistic", seed=999,scale_pos_weight=scale_pos_weight)
 
-gbm.fit(X,y)
+gbm.fit(X_train,y_train)
 
 pred_y = gbm.predict(X_test)
 pred_score_y = gbm.predict_proba(X_test)[:, 1]
