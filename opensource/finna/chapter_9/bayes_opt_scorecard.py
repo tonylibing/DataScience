@@ -9,6 +9,8 @@ from itertools import combinations
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection  import train_test_split
+from sklearn.model_selection  import cross_val_score
+from sklearn.model_selection  import StratifiedKFold
 from sklearn.metrics import *
 from sklearn.model_selection  import GridSearchCV
 from bayes_opt import BayesianOptimization
@@ -41,6 +43,15 @@ X_train.shape, y_train.shape
 negative,positive = trainData.groupby('target').count()['Idx']
 scale_pos_weight = negative*1.0/positive
 
+# cv_result = xgb.cv(params, xgtrain, num_boost_round=num_rounds, nfold=5,
+#                    seed=random_state,
+#                    callbacks=[xgb.callback.early_stop(50)])
+#
+# return -cv_result['test-mae-mean'].values[-1]
+
+
+
+
 def xgbcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_child_weight,gamma):
     gbm = xgb.XGBClassifier(max_depth=int(max_depth), n_estimators=int(n_estimators), learning_rate=learning_rate,
                             subsample=subsample, colsample_bytree=colsample_bytree,
@@ -56,7 +67,17 @@ def xgbcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_ch
     with open('xgb_bayes_opt_results.txt','a') as f: f.write("max_depth:%f,n_estimators:%f,learning_rate:%f,subsample:%f,colsample_bytree:%f,min_child_weight:%f,gamma:%f,auc:%f,KS:%f\n"%(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_child_weight,gamma,auc,KS))
     return auc
 
-xgbBO = BayesianOptimization(xgbcv,
+def xgbfcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_child_weight,gamma):
+    gbm = xgb.XGBClassifier(max_depth=int(max_depth), n_estimators=int(n_estimators), learning_rate=learning_rate,
+                            subsample=subsample, colsample_bytree=colsample_bytree,
+                            min_child_weight = min_child_weight, gamma = gamma,
+                            objective="binary:logistic", seed=999,nthread=5,scale_pos_weight=scale_pos_weight)
+    scores = cross_val_score(gbm,X,y,scoring='roc_auc',cv=StratifiedKFold(5,shuffle=True))
+    print scores
+    return scores.mean()
+
+
+xgbBO = BayesianOptimization(xgbfcv,
     {
     'max_depth':(int(10),int(12)),
     'n_estimators':(int(20),int(100)),
@@ -66,7 +87,7 @@ xgbBO = BayesianOptimization(xgbcv,
     'min_child_weight':(1,40),
     'gamma':(0.05,1)
     })
-num_iter = 25
+num_iter = 100
 init_points = 5
 
 xgbBO.maximize(init_points=init_points, n_iter=num_iter)
