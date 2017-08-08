@@ -38,8 +38,10 @@ X = np.matrix(X)
 y = trainData['target']
 y = np.array(y)
 
-oversampler=SMOTE(random_state=2007)
+oversampler=SMOTE(random_state=2017)
 X_os,y_os=oversampler.fit_sample(X,y)
+print X_os.shape, y_os.shape
+
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=0)
 X_train.shape, y_train.shape
@@ -53,9 +55,6 @@ scale_pos_weight = negative*1.0/positive
 #                    callbacks=[xgb.callback.early_stop(50)])
 #
 # return -cv_result['test-mae-mean'].values[-1]
-
-
-
 
 def xgbcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_child_weight,gamma):
     gbm = xgb.XGBClassifier(max_depth=int(max_depth), n_estimators=int(n_estimators), learning_rate=learning_rate,
@@ -78,7 +77,7 @@ def xgbfcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_c
                             min_child_weight = min_child_weight, gamma = gamma,
                             objective="binary:logistic", seed=999,nthread=5,scale_pos_weight=scale_pos_weight)
     scores = cross_val_score(gbm,X,y,scoring='roc_auc',cv=StratifiedKFold(5,shuffle=True,random_state=2017))
-    print scores
+    #print scores
     return scores.mean()
 
 #oversampling
@@ -88,7 +87,7 @@ def os_xgbfcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,mi
                             min_child_weight = min_child_weight, gamma = gamma,
                             objective="binary:logistic", seed=999,nthread=5)
     scores = cross_val_score(gbm, X_os, y_os, scoring='roc_auc', cv=StratifiedKFold(5, shuffle=True, random_state=2017))
-    print scores
+    #print scores
     return scores.mean()
 
 
