@@ -72,6 +72,12 @@ accuracy = accuracy_score(y_test, pred_y)
 cm = confusion_matrix(y_test, pred_y)
 print 'gbm training:', auc, accuracy, cm
 
+# balanced weight 
+# gbm training: 0.642198051243 0.748166666667
+# [[8627 2494]
+#  [ 528  351]]
+
+
 # smote
 # gbm training: 0.648233993248 0.924333333333
 # [[11083    38]
