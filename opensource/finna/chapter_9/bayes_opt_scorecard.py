@@ -14,6 +14,8 @@ from sklearn.model_selection  import StratifiedKFold
 from sklearn.metrics import *
 from sklearn.model_selection  import GridSearchCV
 from bayes_opt import BayesianOptimization
+from imblearn.over_sampling import SMOTE
+from imblearn.combine import SMOTETomek,SMOTEENN
 import statsmodels.api as sm
 import xgboost as xgb
 import sys
@@ -35,6 +37,9 @@ X = trainData[var_WOE_list]   #by default  LogisticRegressionCV() fill fit the i
 X = np.matrix(X)
 y = trainData['target']
 y = np.array(y)
+
+oversampler=SMOTE(random_state=2007)
+X_os,y_os=oversampler.fit_sample(X,y)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=0)
 X_train.shape, y_train.shape
@@ -76,8 +81,18 @@ def xgbfcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_c
     print scores
     return scores.mean()
 
+#oversampling
+def os_xgbfcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_child_weight,gamma):
+    gbm = xgb.XGBClassifier(max_depth=int(max_depth), n_estimators=int(n_estimators), learning_rate=learning_rate,
+                            subsample=subsample, colsample_bytree=colsample_bytree,
+                            min_child_weight = min_child_weight, gamma = gamma,
+                            objective="binary:logistic", seed=999,nthread=5)
+    scores = cross_val_score(gbm, X_os, y_os, scoring='roc_auc', cv=StratifiedKFold(5, shuffle=True, random_state=2017))
+    print scores
+    return scores.mean()
 
-xgbBO = BayesianOptimization(xgbfcv,
+
+xgbBO = BayesianOptimization(os_xgbfcv,
     {
     'max_depth':(int(10),int(12)),
     'n_estimators':(int(20),int(100)),
