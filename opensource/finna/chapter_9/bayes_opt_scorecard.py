@@ -72,7 +72,7 @@ def xgbfcv(max_depth,n_estimators,learning_rate,subsample,colsample_bytree,min_c
                             subsample=subsample, colsample_bytree=colsample_bytree,
                             min_child_weight = min_child_weight, gamma = gamma,
                             objective="binary:logistic", seed=999,nthread=5,scale_pos_weight=scale_pos_weight)
-    scores = cross_val_score(gbm,X,y,scoring='roc_auc',cv=StratifiedKFold(3,shuffle=False))
+    scores = cross_val_score(gbm,X,y,scoring='roc_auc',cv=StratifiedKFold(5,shuffle=True,random_state=2017))
     print scores
     return scores.mean()
 
