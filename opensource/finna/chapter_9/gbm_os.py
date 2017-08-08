@@ -71,9 +71,9 @@ cm = confusion_matrix(y_test, pred_y)
 print 'gbm training:', auc, accuracy, cm
 
 # smote
-# gbm training: 0.633175313561 0.617
-# [[6902 4219]
-#  [ 377  502]]
+# gbm training: 0.648233993248 0.924333333333
+# [[11083    38]
+#  [  870     9]]
 
 
 #smoteenn
