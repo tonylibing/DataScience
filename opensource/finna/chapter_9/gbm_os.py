@@ -38,14 +38,13 @@ X = np.matrix(X)
 y = trainData['target']
 y = np.array(y)
 
-oversampler=SMOTE(random_state=2017)
-X_os,y_os=oversampler.fit_sample(X,y)
-print X_os.shape, y_os.shape
 
-X=X_os
-y=y_os
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=2017,stratify=y)
 X_train.shape, y_train.shape
+
+oversampler=SMOTE(random_state=2017)
+X_train_os,y_train_os=oversampler.fit_sample(X_train,y_train)
+print X_train_os.shape, y_train_os.shape
 
 
 negative,positive = trainData.groupby('target').count()['Idx']
@@ -55,7 +54,7 @@ gbm = xgb.XGBClassifier(max_depth=12, n_estimators=30, learning_rate=0.1,
                               subsample=0.8, colsample_bytree=0.7, max_delta_step=3,
                               objective="binary:logistic", seed=999,scale_pos_weight=scale_pos_weight)
 
-gbm.fit(X,y)
+gbm.fit(X_train_os,y_train_os)
 
 pred_y = gbm.predict(X_test)
 pred_score_y = gbm.predict_proba(X_test)[:, 1]
