@@ -68,14 +68,19 @@ gbm.fit(X_train,y_train)
 pred_y = gbm.predict(X_test)
 pred_score_y = gbm.predict_proba(X_test)[:, 1]
 auc = roc_auc_score(y_test, pred_score_y)
+pr_auc=average_precision_score(y_test,pred_score_y)
 accuracy = accuracy_score(y_test, pred_y)
 cm = confusion_matrix(y_test, pred_y)
-print 'gbm training:', auc, accuracy, cm
+print 'gbm training:', auc, pr_auc,accuracy, cm
 
 # balanced weight 
 # gbm training: 0.642198051243 0.748166666667
 # [[8627 2494]
 #  [ 528  351]]
+#  prauc
+# gbm training: 0.642198051243 0.124949165528 0.748166666667 [[8627 2494]
+#  [ 528  351]]
+
 
 
 # smote
