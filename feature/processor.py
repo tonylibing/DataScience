@@ -587,3 +587,12 @@ class ReduceVIF(BaseEstimator, TransformerMixin):
                 X = X.drop([X.columns.tolist()[maxloc]], axis=1)
                 dropped = True
         return X
+        
+        
+        
+        
+
+
+
+
+
