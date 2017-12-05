@@ -14,55 +14,126 @@ from sklearn.preprocessing import Imputer
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import datetime
 import time
+from tqdm import tqdm
+
+# def ColumnInfo(df,col):
+#
+#     missing_pct = 0.0
+#     uniq_vals = list(set(df[col]))
+#     if np.nan in uniq_vals:
+#         uniq_vals.remove(np.nan)
+#
+#     if len(uniq_vals) >= 10 and isinstance(uniq_vals[0], numbers.Real):
+#         col_type = 'numerical'
+#     else:
+#         col_type = 'categorical'
+#
+#     if(col_type=='numerical' or col_type=='id'):
+#
+#
+#     elif(col_type=='categorical'):
+#         missing_vals = df[col].map(lambda x: int(x != x))
+#         missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
+#
+#     if "_id" in col:
+#         col_type = 'id'
+#
+#     return col,col_type,missing_pct
 
 def ColumnInfo(df,col):
-    col_type=''
-    missing_pct = 0.0
-    uniq_vals = list(set(df[col]))
-    if np.nan in uniq_vals:
-        uniq_vals.remove(np.nan)
-    if "id" in col:
+    col_type = ''
+    unique_length = len(df[col].unique())
+    length = df.shape[0]
+    missing_length = np.sum(df[col].isnull())
+    if col.endswith('time'):
+        col_type = 'time'
+    elif col.endswith('id') or unique_length/float(length-missing_length)>0.9:
         col_type = 'id'
-    if len(uniq_vals) >= 10 and isinstance(uniq_vals[0], numbers.Real):
-        col_type = 'numerical'
-    else:
+    elif df[col].dtype!='float64':
         col_type = 'categorical'
+    elif len(df[col].unique())<=10:
+        col_type = 'categorical'
+    else:
+        col_type = 'numerical'
 
-    if(col_type=='numerical' or col_type=='id'):
-        missing_vals = df[col].map(lambda x: int(np.isnan(x)))
-        missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
-    elif(col_type=='categorical'):
-        missing_vals = df[col].map(lambda x: int(x != x))
-        missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
+    missing_vals = df[col].map(lambda x: int(np.isnan(x)))
+    missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
 
     return col,col_type,missing_pct
 
-def ColumnSummary(df):
+def ColumnSummary(df,label_col = 'label',id_cols = None):
     column_info = pd.DataFrame([(ColumnInfo(df,col)) for col in df.columns.values])
     column_info.columns = ['col_name', 'ColumnType','missing_pct']
     summary = df.describe(include='all').transpose()
     summary = summary.reset_index()
-    print(summary.columns)
+    # print(summary.columns)
     all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
     all.drop('col_name',axis=1)
     all.to_csv('colummn_summary.csv')
     return all
 
 
-class DataProcessor(BaseEstimator):
-    def __init__(self, df):
+class FeatureProcessor(BaseEstimator):
+    """
+    1. drop missing columns according to missing percentage, filter outliers
+    2. detect column type
+    3. binning numerical type feature and genrating new feature names
+    4. one-hot encoding or woe encoding of categorical feature
+    5. do 3,4 in parallel using FeatureUnion
+    6. feature union
+    7. to sparse feature matrix or dense
+    """
+    def __init__(self,df,feature_processors = None):
         self.df = df
-        self.column_summray = None
-        self.transformers = None
+        self.column_summray = ColumnSummary(self.df)
+        # feature_processor:column,feature type,missing fill method
+        if feature_processors:
+            self.feature_processors = feature_processors
+        else:
+            self.feature_processors = None
+
         self.feature_matrix = None
+
+        # date_pip = Pipeline([('extract', column_extractor.column_extractor(date_manip)),
+        #                      ('date_manip', date_transformer.date_transformer('%Y-%m-%d')),
+        #                      ('d-m-y-q-dow', FeatureUnion([('day', date_transformer.day_of_month_transformer()),
+        #                                                    ('month', date_transformer.month_transformer()),
+        #                                                    ('dow', date_transformer.day_of_week_transformer()),
+        #                                                    ('quarter', date_transformer.month_quarter_transformer()),
+        #                                                    ('year', date_transformer.year_transformer())])),
+        #                      ('impute', imputing_transformer.imputing_transformer(Imputer(strategy='most_frequent')))])
+        #
+        # continuous = Pipeline([
+        #     ('extract', column_extractor.column_extractor(cont)),
+        #     ('impute', imputing_transformer.imputing_transformer(Imputer(strategy='most_frequent'))),
+        #     ('scale', Normalizer())])
+        #
+        # ordinal_pip = Pipeline([('extract', column_extractor.column_extractor(ordinal)),
+        #                         ('ord', categorical_transformer.ordinal_transformer(ordinal)),
+        #                         ('impute',
+        #                          imputing_transformer.imputing_transformer(Imputer(strategy='most_frequent')))])
+        #
+        # one_hot = Pipeline([('extract', column_extractor.column_extractor(categorical)),
+        #                     ('lab_enc', categorical_transformer.label_transformer()),
+        #                     ('one_hot', ModelTransformer.ModelTransformer(OneHotEncoder(sparse=False)))])
+        #
+        # features = Pipeline([('parallel', FeatureUnion([('date', date_pip),
+        #                                                 ('continuous', continuous),
+        #                                                 ('ordinal_pip', ordinal_pip),
+        #                                                 ('one_hot', one_hot)])),
+        #                      ('cleanup', cleanup_transformer.cleanup_transformer())])
+        #
+        # return features, features.transform(df)
 
 
     def fit(self, *_):
-        self.column_summray = ColumnSummary(self.df)
         return self
 
     def transform(self, X):
         return X[self.columns]
+
+    def fit_transform(self):
+        pass
 
     def persist(self):
         pass
