@@ -21,12 +21,14 @@ def ColumnInfo(df,col):
     uniq_vals = list(set(df[col]))
     if np.nan in uniq_vals:
         uniq_vals.remove(np.nan)
+    if "id" in col:
+        col_type = 'id'
     if len(uniq_vals) >= 10 and isinstance(uniq_vals[0], numbers.Real):
         col_type = 'numerical'
     else:
         col_type = 'categorical'
 
-    if(col_type=='numerical'):
+    if(col_type=='numerical' or col_type=='id'):
         missing_vals = df[col].map(lambda x: int(np.isnan(x)))
         missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
     elif(col_type=='categorical'):
@@ -40,7 +42,7 @@ def ColumnSummary(df):
     column_info.columns = ['col_name', 'ColumnType','missing_pct']
     summary = df.describe(include='all').transpose()
     summary = summary.reset_index()
-    print summary.columns
+    print(summary.columns)
     all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
     all.drop('col_name',axis=1)
     all.to_csv('colummn_summary.csv')
@@ -50,13 +52,13 @@ def ColumnSummary(df):
 class DataProcessor(BaseEstimator):
     def __init__(self, df):
         self.df = df
-        self.collumn_summray = None
+        self.column_summray = None
         self.transformers = None
         self.feature_matrix = None
 
 
     def fit(self, *_):
-        self.collumn_summray = ColumnSummary(self.df)
+        self.column_summray = ColumnSummary(self.df)
         return self
 
     def transform(self, X):
@@ -127,6 +129,19 @@ class OutliersFilter(TransformerMixin):
         minval, maxval = np.percentile(data, [diff, 100 - diff])
         return (data < minval) | (data > maxval)
 
+    def iqr_based_outlier(data):
+        """
+        For outlier detection, upper and lower fences (Q3 + 1.5IQR and Q1 − 1.5IQR) of the differences are often used in statistics, where Q1 is the lower 25% quantile, Q3 is the upper 25% quantile and IQR = Q3 − Q1.
+        :param threshold:
+        :return:
+        """
+        Q1, Q3 = np.percentile(data, [0.25,0.75])
+        IQR=Q3-Q1
+        minval = Q3+1.5*IQR
+        maxval = Q1-1.5*IQR
+        return (data < minval) | (data > maxval)
+
+
 class ContinuousFeatureTransformer(TransformerMixin):
     def __init__(self, columns):
         self.fillmethod = self.parameters['fillmethod']
@@ -172,8 +187,8 @@ class QuantileBinarizer(TransformerMixin):
         d3['total'] = d2.count().Y
         d3[Y.name + '_rate'] = d2.mean().Y
         d4 = (d3.sort_index(by='min_' + X.name)).reset_index(drop=True)
-        print "=" * 60
-        print d4
+        print("=" * 60)
+        print(d4)
         return X[self.columns]
 
 class MonotonicBinarizer(TransformerMixin):
@@ -197,8 +212,8 @@ class MonotonicBinarizer(TransformerMixin):
         d3['total'] = d2.count().Y
         d3[Y.name + '_rate'] = d2.mean().Y
         d4 = (d3.sort_index(by='min_' + X.name)).reset_index(drop=True)
-        print "=" * 60
-        print d4
+        print("=" * 60)
+        print(d4)
         return X[self.columns]
 
 class LogTransformer(TransformerMixin):
@@ -277,7 +292,7 @@ class OrdinalTransformer(TransformerMixin):
         X_1 = X.copy()
         for col in X.columns:
             mp = self.ord_col_map[col]
-            print "mp",mp
+            print("mp",mp)
             X_1[col] = X_1[col].map(lambda x : x.lower() if (type(x) == str) else x)
             X_1[col] = X_1[col].map(lambda x : mp[x] if x in mp else float('nan'))
         return X_1
@@ -296,15 +311,15 @@ class DropColumnTransformer(TransformerMixin):
         column_info.columns = ['col_name', 'ColumnType', 'missing_pct']
         summary = df.describe(include='all').transpose()
         summary = summary.reset_index()
-        print summary.columns
+        print(summary.columns)
         all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
         misssing_too_much_cols = all.loc[all['missing_pct']>self.missing_threshold]['col_name'].values.tolist()
         for i in misssing_too_much_cols:
-            print 'drop column {0} due to missing percentage'.format(i)
+            print('drop column {0} due to missing percentage'.format(i))
 
         low_variance_cols =   all.loc[all['std']<self.dev_threshold]['col_name'].values.tolist()
         for i in low_variance_cols:
-            print 'drop column {0} due to low variance'.format(i)
+            print('drop column {0} due to low variance'.format(i))
 
         drop_cols = misssing_too_much_cols + low_variance_cols
         return df.drop(drop_cols,axis = 1,inplace=False)
@@ -472,7 +487,7 @@ def ProcessExtremeAndMissingTransformer(TransformerMixin):
                         a = random.random(1)
                         position = [k+1 for k in range(len(freqCumsum)-1) if freqCumsum[k]<a<=freqCumsum[k+1]][0]
                         missingList[i] = freqTuple[position-1][0]
-        print 'The missing value in {0} has been made up with the mothod of {1}'.format(col, method)
+        print('The missing value in {0} has been made up with the mothod of {1}'.format(col, method))
         return missingList
 
 class ModelTransformer(TransformerMixin):
