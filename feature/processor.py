@@ -57,8 +57,8 @@ def ColumnSummary(df, label_col='label', id_cols=None):
 
 
 class BaseFeatureProcessor:
-    def __init__(self, col, feature_type, params):
-        self.col = col
+    def __init__(self, col_name, feature_type, params):
+        self.col_name = col_name
         self.feature_type = feature_type
         self.params = params
 
@@ -80,78 +80,81 @@ class FeatureProcessor(BaseEstimator):
     7. to sparse feature matrix or dense
     """
 
-    def __init__(self, df, feature_processors=None, parallel=True):
+    def __init__(self, df, feature_processors=None, parallel=False):
         self.df = df
         self.column_summray = ColumnSummary(self.df)
         self.column_type = self.column_summray.set_index('col_name')['ColumnType'].to_dict()
-        # feature_processor:column,feature type,missing fill method
+        self.feature_matrix = None
+        self.feature_processors = []
         if feature_processors:
             self.feature_processors = feature_processors
         else:
             if parallel:
                 numerical_cols = []
                 categorical_cols = []
-                for col, col_type in self.column_type.iteritems():
+                for col, col_type in self.column_type.items():
                     if col_type == 'numerical':
                         numerical_cols.append(col)
+                        fp = ContinuousFeatureTransformer(col, col_type, {})
+                        self.feature_processors.append(fp)
                     elif col_type == 'categorical':
                         categorical_cols.append(col)
+                        fp = CategoricalFeatureTransformer(col, col_type, {})
+                        self.feature_processors.append(fp)
+            else:
+                numerical_cols = []
+                categorical_cols = []
+                for col, col_type in self.column_type.items():
+                    if col_type == 'numerical':
+                        numerical_cols.append(col)
+                        fp = ContinuousFeatureTransformer(col, col_type, {})
+                        self.feature_processors.append(fp)
+                    elif col_type == 'categorical':
+                        categorical_cols.append(col)
+                        fp = CategoricalFeatureTransformer(col, col_type, {})
+                        self.feature_processors.append(fp)
 
-                numerical_pipe = Pipeline([('extract', ColumnExtractor(numerical_cols)),
-                                           ('date_manip', date_transformer.date_transformer('%Y-%m-%d')),
-                                           ('d-m-y-q-dow',
-                                            FeatureUnion([('day', date_transformer.day_of_month_transformer()),
-                                                          ('month', date_transformer.month_transformer()),
-                                                          ('dow', date_transformer.day_of_week_transformer()),
-                                                          ('quarter', date_transformer.month_quarter_transformer()),
-                                                          ('year', date_transformer.year_transformer())])),
-                                           ('impute', imputing_transformer.imputing_transformer(
-                                               Imputer(strategy='most_frequent')))])
-            for col in df.columns.values:
+    def fit(self, df):
+        self.feature_offset = {}
+        self.feature_name = []
+        self.length = 0
+        for fp in self.feature_processors:
+            fp.fit(df)
+            self.feature_name.append(fp.col_name)
+            self.feature_offset[fp.col_name] = self.length
+            self.length += fp.dimension
 
-            self.feature_processors = None
-
-        self.feature_matrix = None
-
-        # date_pip = Pipeline([('extract', column_extractor.column_extractor(date_manip)),
-        #                      ('date_manip', date_transformer.date_transformer('%Y-%m-%d')),
-        #                      ('d-m-y-q-dow', FeatureUnion([('day', date_transformer.day_of_month_transformer()),
-        #                                                    ('month', date_transformer.month_transformer()),
-        #                                                    ('dow', date_transformer.day_of_week_transformer()),
-        #                                                    ('quarter', date_transformer.month_quarter_transformer()),
-        #                                                    ('year', date_transformer.year_transformer())])),
-        #                      ('impute', imputing_transformer.imputing_transformer(Imputer(strategy='most_frequent')))])
-        #
-        # continuous = Pipeline([
-        #     ('extract', column_extractor.column_extractor(cont)),
-        #     ('impute', imputing_transformer.imputing_transformer(Imputer(strategy='most_frequent'))),
-        #     ('scale', Normalizer())])
-        #
-        # ordinal_pip = Pipeline([('extract', column_extractor.column_extractor(ordinal)),
-        #                         ('ord', categorical_transformer.ordinal_transformer(ordinal)),
-        #                         ('impute',
-        #                          imputing_transformer.imputing_transformer(Imputer(strategy='most_frequent')))])
-        #
-        # one_hot = Pipeline([('extract', column_extractor.column_extractor(categorical)),
-        #                     ('lab_enc', categorical_transformer.label_transformer()),
-        #                     ('one_hot', ModelTransformer.ModelTransformer(OneHotEncoder(sparse=False)))])
-        #
-        # features = Pipeline([('parallel', FeatureUnion([('date', date_pip),
-        #                                                 ('continuous', continuous),
-        #                                                 ('ordinal_pip', ordinal_pip),
-        #                                                 ('one_hot', one_hot)])),
-        #                      ('cleanup', cleanup_transformer.cleanup_transformer())])
-        #
-        # return features, features.transform(df)
-
-    def fit(self, *_):
         return self
 
-    def transform(self, X):
-        return X[self.columns]
+    def transform(self, df):
+        for fp in self.feature_processors:
+            fp.transform(df)
+            df_tmp = df[self.feature_name]
+            data = []
+            row_idx = []
+            col_idx = []
+            for i, v in enumerate(df_tmp.values):
+                for k, vv in enumerate(v):
+                    fp = self.feature_processors[k]
+                    if 'discrete' in fp.col_name:
+                        if np.isnan(vv) == False:
+                            data.append(1.0)
+                            row_idx.append(i)
+                            col_idx.append(vv + self.feature_offset[fp.col_name])
+                    else:
+                        data.append(vv)
+                        row_idx.append(i)
+                        col_idx.append(self.feature_offset[fp.col_name])
+        data.append(0.0)
+        row_idx.append(len(df_tmp) - 1)
+        col_idx.append(self.length - 1)
+        print(len(data))
+        print(len(row_idx))
+        print(len(col_idx))
+        return csr_matrix((data, (row_idx, col_idx)))
 
-    def fit_transform(self):
-        pass
+    def fit_transform(self, df):
+        return self.fit(df).transform(df)
 
     def persist(self):
         pass
@@ -232,27 +235,67 @@ class OutliersFilter(TransformerMixin):
 
 
 class ContinuousFeatureTransformer(TransformerMixin):
-    def __init__(self, columns):
-        self.fillmethod = self.parameters['fillmethod']
+    def __init__(self, col_name, col_type, params):
+        #        super(CategoricalFeatureTransformer, self).__init__()
+        self.col_name = col_name
+        self.col_type = col_type
+        self.params = params
+        self.fillmethod = 'mean'
+        if 'fillmethod' in self.params:
+            self.fillmethod = self.params['fillmethod']
 
     def fit(self, df):
-        self.initialize()
         if self.fillmethod == 'value':
             self.value = self.parameters['value']
         elif self.fillmethod == 'mean':
-            self.value = df[self.col].mean()
+            self.value = df[self.col_name].mean()
         elif self.fillmethod == 'median':
-            self.value = df[self.col].median()
+            self.value = df[self.col_name].median()
+
         self.dimension = 1
+        return self
 
     def transform(self, df):
         if self.fillmethod == 'random':
-            missing_cnt = df.loc[np.isnan(df[col])][col].size
-            not_missing = df.loc[~np.isnan(df[col])][col]
+            missing_cnt = df.loc[np.isnan(df[self.col_name])][self.col_name].size
+            not_missing = df.loc[~np.isnan(df[self.col_name])][self.col_name]
             rnd_value = not_missing.sample(n=missing_cnt)
-            df.loc[np.isnan(df[col])][col] = rnd_value
+            df.loc[np.isnan(df[self.col_name])][self.col_name] = rnd_value
         else:
-            df[self.col_name] = df[self.col].fillna(self.value)
+            df[self.col_name] = df[self.col_name].fillna(self.value)
+        return df[self.col_name]
+
+    def fit_transform(self, df):
+        return self.fit(df).transform(df)
+
+
+class CategoricalFeatureTransformer(TransformerMixin):
+    def __init__(self, col_name, col_type, params):
+        #        super(CategoricalFeatureTransformer, self).__init__()
+        self.col_name = col_name
+        self.col_type = col_type
+        self.params = params
+        self.feature2id = {}
+        self.id2feature = {}
+
+    def fit(self, df):
+        idx = 0
+        self.feature2id = {}
+        self.id2feature = {}
+        for item in df[self.col_name].astype(str).unique():
+            self.id2feature[idx] = item
+            self.feature2id[item] = idx
+            idx += 1
+
+        self.dimension = idx
+        return self
+
+    def transform(self, df):
+        df[self.col_name] = df[self.col_name].astype(str).map(self.feature2id)
+        return df[self.col_name]
+
+    def fit_transform(self, df):
+        return self.fit(df).transform(df)
 
 
 class QuantileBinarizer(TransformerMixin):
@@ -382,17 +425,6 @@ class LogTransformer(TransformerMixin):
 
 
 class PowerTransformer(TransformerMixin):
-    def __init__(self, columns):
-        self.columns = columns
-
-    def fit(self, X, y):
-        return self
-
-    def transform(self, X):
-        return X[self.columns]
-
-
-class CategoricalFeatureTransformer(TransformerMixin):
     def __init__(self, columns):
         self.columns = columns
 
