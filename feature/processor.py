@@ -3,6 +3,7 @@ from sklearn.base import TransformerMixin
 from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 import numpy as np
+from pandas.io.json import json_normalize
 import scipy.stats.stats as stats
 from scipy.sparse import csr_matrix
 from collections import defaultdict
@@ -19,9 +20,12 @@ from tqdm import tqdm
 
 
 def ColumnInfo(df, col):
+    print(col)
     col_type = ''
     missing_pct = 0.0
-    uniq_vals = list(set(df[col]))
+    rows = np.random.choice(df.index.values, 1000)
+    df_sample = df.ix[rows][col]
+    uniq_vals = list(set(df_sample))
     if np.nan in uniq_vals:
         uniq_vals.remove(np.nan)
 
@@ -89,6 +93,7 @@ class FeatureProcessor(BaseEstimator):
         if feature_processors:
             self.feature_processors = feature_processors
         else:
+            print('generate default feature processors')
             if parallel:
                 numerical_cols = []
                 categorical_cols = []
@@ -113,6 +118,9 @@ class FeatureProcessor(BaseEstimator):
                         categorical_cols.append(col)
                         fp = CategoricalFeatureTransformer(col, col_type, {})
                         self.feature_processors.append(fp)
+
+        for fp in self.feature_processors:
+            print('col:{0},type:{1},params:{2}', fp.col_name, fp.col_type, fp.params)
 
     def fit(self, df):
         self.feature_offset = {}
@@ -752,6 +760,22 @@ class DayOfMonthTransformer(TransformerMixin):
 
     def transform(self, X):
         return X[self.columns]
+
+
+class DateTimeTransformer(TransformerMixin):
+    def __init__(self, column):
+        self.column = column
+
+    def fit(self, X):
+        return self
+
+    def transform(self, X):
+        from dateutil.parser import parse
+        # X[self.column].apply(lambda x: pd.Series({'dayOfWeek':parse(x).weekday(),'hourOfDay':parse(x).hour,'dayOfMonth':parse(x).day})
+        X['dayOfWeek'] = X[self.column].apply(lambda x: parse(x).weekday())
+        X['hourOfDay'] = X[self.column].apply(lambda x: parse(x).hour)
+        X['dayOfMonth'] = X[self.column].apply(lambda x: parse(x).day)
+        return X
 
 
 class ReduceVIF(BaseEstimator, TransformerMixin):
