@@ -1,19 +1,26 @@
+import pandas as pd
+import numpy as np
+
 from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import LabelEncoder
-import pandas as pd
-import numpy as np
-from pandas.io.json import json_normalize
-import scipy.stats.stats as stats
-from scipy.sparse import csr_matrix
-from collections import defaultdict
-import random
-import operator
-import numbers
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.feature_selection import SelectKBest,chi2
+from sklearn.feature_selection import SelectFromModel
+from sklearn.svm import LinearSVC
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import Imputer
+
+import scipy.stats.stats as stats
+from scipy.sparse import csr_matrix
+from collections import defaultdict
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+from pandas.io.json import json_normalize
+import random
+import operator
+import numbers
 import datetime
 import time
 import json
@@ -44,7 +51,7 @@ def ColumnInfo(df, col):
         col_type = 'categorical'
 
     if (col_type == 'numerical'):
-        missing_vals = df[col].map(lambda x: int(np.isnan(x)))
+        missing_vals = df[col].map(lambda x: int(pd.isnull(x)))
         missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
     elif (col_type == 'categorical'):
         missing_vals = df[col].map(lambda x: int(x != x))
@@ -150,7 +157,7 @@ class FeatureProcessor(BaseEstimator):
                 for k, vv in enumerate(v):
                     fp = self.feature_processors[k]
                     if 'categorical'==fp.col_type:
-                        if np.isnan(vv) == False:
+                        if pd.isnull(vv) == False:
                             data.append(1.0)
                             row_idx.append(i)
                             col_idx.append(vv + self.feature_offset[fp.col_name])
@@ -270,10 +277,10 @@ class ContinuousFeatureTransformer(TransformerMixin):
 
     def transform(self, df):
         if self.fillmethod == 'random':
-            missing_cnt = df.loc[np.isnan(df[self.col_name])][self.col_name].size
-            not_missing = df.loc[~np.isnan(df[self.col_name])][self.col_name]
+            missing_cnt = df.loc[pd.isnull(df[self.col_name])][self.col_name].size
+            not_missing = df.loc[~pd.isnull(df[self.col_name])][self.col_name]
             rnd_value = not_missing.sample(n=missing_cnt)
-            df.loc[np.isnan(df[self.col_name])][self.col_name] = rnd_value
+            df.loc[pd.isnull(df[self.col_name])][self.col_name] = rnd_value
         else:
             df[self.col_name] = df[self.col_name].fillna(self.value)
         return df[self.col_name]
@@ -755,7 +762,6 @@ class DayOfWeekTransformer(TransformerMixin):
     def transform(self, X):
         return X[self.columns]
 
-
 class DayOfMonthTransformer(TransformerMixin):
     def __init__(self, columns):
         self.columns = columns
@@ -765,7 +771,6 @@ class DayOfMonthTransformer(TransformerMixin):
 
     def transform(self, X):
         return X[self.columns]
-
 
 class DateTimeTransformer(TransformerMixin):
     def __init__(self, column):
@@ -799,6 +804,55 @@ class FlattenJsonTransformer(TransformerMixin):
 
     def fit_transform(self, X,columns):
         return self.fit(X).transform(X,columns)
+
+class VarianceSelector(TransformerMixin):
+    def __init__(self):
+        self.sel = VarianceThreshold(threshold=.08)
+
+    def fit(self, X):
+        return self
+
+    def transform(self, X):
+        X_sel=self.sel.fit_transform(X)
+        return X_sel
+    
+    def fit_transform(self,X):
+        X_sel=self.sel.fit_transform(X)
+        return X_sel
+
+class Chi2KBestSelector(TransformerMixin):
+    def fit(self, X):
+        return self
+
+    def transform(self, X,y):
+        X_chi2 = SelectKBest(chi2, k=5).fit_transform(X, y)
+        return X_chi2
+    
+    def fit_transform(self,X,y):
+        X_chi2 = SelectKBest(chi2, k=5).fit_transform(X, y)
+        return X_chi2
+
+
+class L1KBestSelector(TransformerMixin):
+    def __init__(self):
+        self.lsvc = LinearSVC(C=0.01, penalty="l1", dual=False)
+        
+    def fit(self, X_scaler,y):
+        self.lsvc.fit(X_scaler, y)
+        return self
+
+    def transform(self, X_scaler,y):
+        lsvc = self.lsvc.fit(X_scaler, y)
+        model = SelectFromModel(lsvc, prefit=True)
+        X_lsvc = model.transform(X_scaler)
+        return X_lsvc
+    
+    def fit_transform(self,X_scaler,y):
+        lsvc = self.lsvc.fit(X_scaler, y)
+        model = SelectFromModel(lsvc, prefit=True)
+        X_lsvc = model.transform(X_scaler)
+        return X_lsvc
+
 
 class ReduceVIF(BaseEstimator, TransformerMixin):
     """
@@ -949,7 +1003,6 @@ class XgboostLRClassifier(BaseEstimator):
 #X_train,y_train, X_test, y_test=model.fit_model_split(X_train, y_train,X_test, y_test)
 ###不切分训练集训练叶子特征模型  返回值 是原特征+新特征
 #X_train,y_train, X_test, y_test=model.fit_model(X_train, y_train,X_test, y_test)
-
 
 
 
