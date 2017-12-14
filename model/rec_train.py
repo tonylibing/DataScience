@@ -59,6 +59,19 @@ gbm.fit(X_train[[col for col in X_train.columns if col not in ['sample_weight'] 
 
 
 
+from imblearn.ensemble import EasyEnsemble
+from imblearn.under_sampling import RandomUnderSampler 
+
+n_subsets = int(sum(y==0)/sum(y==1))
+ee = EasyEnsemble(n_subsets=n_subsets)
+sample_X, sample_y = ee.fit_sample(X, y)
+
+rus = RandomUnderSampler(random_state=42)
+X_res, y_res = rus.fit_sample(X, y)
+
+from sklearn.model_selection import train_test_split
+X_n = X.loc[y==0]
+X_n_drop,X_n_retain = train_test_split(X_n, test_size=0.01, random_state=0, stratify=X_n[['cust_level','product_category']])
 
 #no weight
 
@@ -70,20 +83,21 @@ import gc
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 import xgboost as xgb
-from feature.processor import *
-data=pd.read_csv("~/dataset/rec_data_train_save.csv",sep=',')
+from processor import *
+#data=pd.read_csv("~/dataset/rec_data_train_save.csv",sep=',')
+data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
 print(data.columns.values)
 y=data['invest']
-data.drop(['invest','invest_amount'],axis=1,inplace=True)
+data.drop(['invest','invest_amount','mobile_no_attribution'],axis=1,inplace=True)
 #X=data[[col for col in data.columns if col not in ['invest','invest_amount']]]
 X=data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999,stratify=y)
+#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999,stratify=y)
 
 bfp = FeatureProcessor(X)
+feature_matrix = bfp.fit_transform(X)
 gbm = xgb.XGBClassifier(max_depth=3, n_estimators=50, learning_rate=0.08,
                               subsample=0.8, colsample_bytree=0.7,
                               objective="binary:logistic", seed=999)
 
-gbm.fit(X_train,y_train)
-
-        
+gbm.fit(feature_matrix,y)
+#gbm.fit(X_train,y_train)
