@@ -951,10 +951,6 @@ class XgboostLRClassifier(BaseEstimator):
 #X_train,y_train, X_test, y_test=model.fit_model(X_train, y_train,X_test, y_test)
 
 
-gbm = xgb.XGBClassifier(max_depth=12, n_estimators=30, learning_rate=0.08,
-                              subsample=0.8, colsample_bytree=0.7,
-                              objective="binary:logistic", seed=999)
-
 
 
 
