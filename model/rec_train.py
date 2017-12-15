@@ -35,6 +35,7 @@ import gc
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 import xgboost as xgb
+import lightgbm as lgb
 from feature.processor import *
 data=pd.read_csv("~/dataset/rec_data_train_save.csv",sep=',')
 sp_wts =(1 - data.groupby('invest').size()/data.shape[0]).reset_index()
@@ -107,14 +108,34 @@ gbm.fit(feature_matrix,y)
 
 
 #test gbdt lr 
-
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+import xgboost as xgb
+import lightgbm as lgb
 from sklearn.datasets  import  make_hastie_10_2
-from xgboost.sklearn import XGBClassifier
 from processor import *
 
 X, y = make_hastie_10_2(random_state=0)
-gbdtlr = XgboostLRClassifer()
+
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
 
+gbdtlr = XgboostLRClassifer()
 gbdtlr.fit(X_train,y_train)
+y_pre= gbdtlr.predict(X_test)
+y_pro= gbdtlr.predict_proba(X_test)[:,1]
+print("GBDT+LR Test AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
+print("GBDT+LR  Test Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
 
+gbm = xgb.XGBClassifier(n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27)
+gbm.fit(X_train,y_train)
+y_pre= gbm.predict(X_test)
+y_pro= gbm.predict_proba(X_test)[:,1]
+print("Xgboost model Test AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
+print("Xgboost model Test Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
+
+lgbm = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1, random_state=27)
+lgbm.fit(X_train,y_train)
+y_pre= lgbm.predict(X_test)
+y_pro= lgbm.predict_proba(X_test)[:,1]
+print("lightgbm model Test AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
+print("lightgbm model Test Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
