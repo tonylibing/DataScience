@@ -994,7 +994,7 @@ class XgboostLRClassifer(BaseEstimator):
     def fit(self, X, y):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
         #generate new feature with partial data
-        X_train2,y_train2, X_test2, y_test2 = self.fit_model_split(X_train,y_train,X_test,y_test)
+        X_train2,y_train2, X_test2, y_test2 = self.fit_model(X_train,y_train,X_test,y_test)
         self.lr_model.fit(X_train2,y_train2)
         y_pre= self.lr_model.predict(X_test2)
         y_pro= self.lr_model.predict_proba(X_test2)[:,1]
