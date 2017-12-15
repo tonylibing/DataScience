@@ -103,3 +103,18 @@ gbm = xgb.XGBClassifier(max_depth=3, n_estimators=50, learning_rate=0.08,
 
 gbm.fit(feature_matrix,y)
 #gbm.fit(X_train,y_train)
+
+
+
+#test gbdt lr 
+
+from sklearn.datasets  import  make_hastie_10_2
+from xgboost.sklearn import XGBClassifier
+from processor import *
+
+X, y = make_hastie_10_2(random_state=0)
+gbdtlr = XgboostLRClassifer()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
+
+gbdtlr.fit(X_train,y_train)
+

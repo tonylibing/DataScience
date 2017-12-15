@@ -952,7 +952,7 @@ class XgboostLRClassifer(BaseEstimator):
 
     def mergeToOne(self,X,X2):
         X3=[]
-        for i in xrange(X.shape[0]):
+        for i in range(X.shape[0]):
             tmp=np.array([list(X[i]),list(X2[i])])
             X3.append(list(np.hstack(tmp)))
         X3=np.array(X3)
@@ -989,7 +989,7 @@ class XgboostLRClassifer(BaseEstimator):
         return X_train_new,y_train,X_test_new,y_test
       
     def genLeafFeature(self,X,y):
-        return X_leaf_feature
+        pass
     
     def fit(self, X, y):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
@@ -1059,7 +1059,7 @@ class LightgbmLRClassifer(BaseEstimator):
 
     def mergeToOne(self,X,X2):
         X3=[]
-        for i in xrange(X.shape[0]):
+        for i in range(X.shape[0]):
             tmp=np.array([list(X[i]),list(X2[i])])
             X3.append(list(np.hstack(tmp)))
         X3=np.array(X3)
@@ -1100,6 +1100,7 @@ class LightgbmLRClassifer(BaseEstimator):
     
     def fit(self, X, y):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+        print(X.columns)
         #generate new feature with partial data
         X_train2,y_train2, X_test2, y_test2 = self.fit_model_split(X_train,y_train,X_test,y_test)
         self.lr_model.fit(X_train2,y_train2)
@@ -1112,6 +1113,7 @@ class LightgbmLRClassifer(BaseEstimator):
     def transform(self,X):
         new_feature_test = self.gbdt_model.apply(X_test)
         X_test_new = self.mergeToOne(X_test,new_feature_test)
+        print(X_test_new.columns)
         return X_test_new
         
     def predict(self,X):
