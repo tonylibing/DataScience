@@ -112,12 +112,22 @@ from sklearn.model_selection import train_test_split
 from sklearn import metrics
 import xgboost as xgb
 import lightgbm as lgb
+from sklearn.linear_model import LogisticRegression
 from sklearn.datasets  import  make_hastie_10_2
 from processor import *
 
 X, y = make_hastie_10_2(random_state=0)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
+
+
+lr = LogisticRegression(C=1.0, penalty='l2', random_state=42)
+lr.fit(X_train,y_train)
+y_pre= lr.predict(X_test)
+y_pro= lr.predict_proba(X_test)[:,1]
+print("LR Test AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
+print("LR  Test Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
+
 
 gbdtlr = XgboostLRClassifer()
 gbdtlr.fit(X_train,y_train)
@@ -133,7 +143,7 @@ y_pro= gbm.predict_proba(X_test)[:,1]
 print("Xgboost model Test AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
 print("Xgboost model Test Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
 
-lgbm = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1, random_state=27)
+lgbm = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
 lgbm.fit(X_train,y_train)
 y_pre= lgbm.predict(X_test)
 y_pro= lgbm.predict_proba(X_test)[:,1]
