@@ -9,6 +9,8 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import RobustScaler
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 import xgboost as xgb
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import Lasso
 # 
 # train = pd.read_csv('../input/train.csv')
 # test = pd.read_csv('../input/test.csv')

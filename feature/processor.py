@@ -11,6 +11,10 @@ from sklearn.svm import LinearSVC
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import Imputer
+import xgboost as xgb
+import lightgbm as lgb
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import Lasso
 
 import scipy.stats.stats as stats
 from scipy.sparse import csr_matrix
@@ -906,108 +910,215 @@ from sklearn import metrics
 from xgboost.sklearn import XGBClassifier
 import numpy as np
 
-class XgboostLRClassifier(BaseEstimator):
-      ##可以传入xgboost的参数
-      ##常用传入特征的个数 即树的个数 默认30
-      def __init__(self,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.8,colsample_bytree=0.8,objective= 'binary:logistic',nthread=4,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27):
-          self.n_estimators=n_estimators
-          self.learning_rate=learning_rate
-          self.max_depth=max_depth
-          self.min_child_weight=min_child_weight
-          self.gamma=gamma
-          self.subsample=subsample
-          self.colsample_bytree=colsample_bytree
-          self.objective=objective
-          self.nthread=nthread
-          self.scale_pos_weight=scale_pos_weight
-          self.reg_alpha=reg_alpha
-          self.reg_lambda=reg_lambda
-          self.seed=seed
-          print('Xgboost Feature start, new_feature number:{0}',n_estimators)
+class XgboostLRClassifer(BaseEstimator):
+    def __init__(self,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.8,colsample_bytree=0.8,objective= 'binary:logistic',nthread=4,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
+        #gbdt model parameters
+        self.n_estimators=n_estimators
+        self.learning_rate=learning_rate
+        self.max_depth=max_depth
+        self.min_child_weight=min_child_weight
+        self.gamma=gamma
+        self.subsample=subsample
+        self.colsample_bytree=colsample_bytree
+        self.objective=objective
+        self.nthread=nthread
+        self.scale_pos_weight=scale_pos_weight
+        self.reg_alpha=reg_alpha
+        self.reg_lambda=reg_lambda
+        self.seed=seed
+        print("init gbdt model:{0}",n_estimators)
+        self.gbdt_model = XGBClassifier(
+               learning_rate =self.learning_rate,
+               n_estimators=self.n_estimators,
+               max_depth=self.max_depth,
+               min_child_weight=self.min_child_weight,
+               gamma=self.gamma,
+               subsample=self.subsample,
+               colsample_bytree=self.colsample_bytree,
+               objective= self.objective,
+               nthread=self.nthread,
+               scale_pos_weight=self.scale_pos_weight,
+               reg_alpha=self.reg_alpha,
+               reg_lambda=self.reg_lambda,
+               seed=self.seed)
+        #lr model parameters
+        self.lr_penalty = lr_penalty
+        self.lr_c = lr_c
+        self.lr_random_state = lr_random_state
+        print("init lr model")
+        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, random_state=lr_random_state)
+        #numerical feature binner
+        self.numerical_feature_processor = None
 
-      def mergeToOne(self,X,X2):
-          X3=[]
-          for i in xrange(X.shape[0]):
-              tmp=np.array([list(X[i]),list(X2[i])])
-              X3.append(list(np.hstack(tmp)))
-          X3=np.array(X3)
-          return X3
-      ##切割训练
-      def fit_model_split(self,X_train,y_train,X_test,y_test):
-          ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
-          X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=0)
-          clf = XGBClassifier(
-                 learning_rate =self.learning_rate,
-                 n_estimators=self.n_estimators,
-                 max_depth=self.max_depth,
-                 min_child_weight=self.min_child_weight,
-                 gamma=self.gamma,
-                 subsample=self.subsample,
-                 colsample_bytree=self.colsample_bytree,
-                 objective= self.objective,
-                 nthread=self.nthread,
-                 scale_pos_weight=self.scale_pos_weight,
-                 reg_alpha=self.reg_alpha,
-                 reg_lambda=self.reg_lambda,
-                 seed=self.seed)
-          clf.fit(X_train_1, y_train_1)
-          y_pre= clf.predict(X_train_2)
-          y_pro= clf.predict_proba(X_train_2)[:,1]
-          print("pred_leaf=T AUC Score :{0}" ,metrics.roc_auc_score(y_train_2, y_pro))
-          print("pred_leaf=T  Accuracy : {0}" , metrics.accuracy_score(y_train_2, y_pre))
-          new_feature= clf.apply(X_train_2)
-          X_train_new2=self.mergeToOne(X_train_2,new_feature)
-          new_feature_test= clf.apply(X_test)
-          X_test_new=self.mergeToOne(X_test,new_feature_test)
-          print("Training set of sample size 0.4 fewer than before")
-          return X_train_new2,y_train_2,X_test_new,y_test
-      ##整体训练
-      def fit_model(self,X_train,y_train,X_test,y_test):
-          clf = XGBClassifier(
-                 learning_rate =self.learning_rate,
-                 n_estimators=self.n_estimators,
-                 max_depth=self.max_depth,
-                 min_child_weight=self.min_child_weight,
-                 gamma=self.gamma,
-                 subsample=self.subsample,
-                 colsample_bytree=self.colsample_bytree,
-                 objective= self.objective,
-                 nthread=self.nthread,
-                 scale_pos_weight=self.scale_pos_weight,
-                 reg_alpha=self.reg_alpha,
-                 reg_lambda=self.reg_lambda,
-                 seed=self.seed)
-          clf.fit(X_train, y_train)
-          y_pre= clf.predict(X_test)
-          y_pro= clf.predict_proba(X_test)[:,1]
-          print( "pred_leaf=T  AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
-          print("pred_leaf=T  Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
-          new_feature= clf.apply(X_train)
-          X_train_new=self.mergeToOne(X_train,new_feature)
-          new_feature_test= clf.apply(X_test)
-          X_test_new=self.mergeToOne(X_test,new_feature_test)
-          print("Training set sample number remains the same")
-          return X_train_new,y_train,X_test_new,y_test
+    def mergeToOne(self,X,X2):
+        X3=[]
+        for i in xrange(X.shape[0]):
+            tmp=np.array([list(X[i]),list(X2[i])])
+            X3.append(list(np.hstack(tmp)))
+        X3=np.array(X3)
+        return X3
+    
+    ##切割训练
+    def fit_model_split(self,X_train,y_train,X_test,y_test):
+        ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
+        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=0)
+        self.gbdt_model.fit(X_train_1, y_train_1)
+        y_pre= self.gbdt_model.predict(X_train_2)
+        y_pro= self.gbdt_model.predict_proba(X_train_2)[:,1]
+        print("pred_leaf=T AUC Score :{0}" ,metrics.roc_auc_score(y_train_2, y_pro))
+        print("pred_leaf=T  Accuracy : {0}" , metrics.accuracy_score(y_train_2, y_pre))
+        new_feature = self.gbdt_model.apply(X_train_2)
+        X_train_new2=self.mergeToOne(X_train_2,new_feature)
+        new_feature_test= self.gbdt_model.apply(X_test)
+        X_test_new=self.mergeToOne(X_test,new_feature_test)
+        print("Training set of sample size 0.4 fewer than before")
+        return X_train_new2,y_train_2,X_test_new,y_test
+    
+    ##整体训练
+    def fit_model(self,X_train,y_train,X_test,y_test):
+        self.gbdt_model.fit(X_train, y_train)
+        y_pre= self.gbdt_model.predict(X_test)
+        y_pro= self.gbdt_model.predict_proba(X_test)[:,1]
+        print( "pred_leaf=T  AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
+        print("pred_leaf=T  Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
+        new_feature= self.gbdt_model.apply(X_train)
+        X_train_new=self.mergeToOne(X_train,new_feature)
+        new_feature_test= self.gbdt_model.apply(X_test)
+        X_test_new=self.mergeToOne(X_test,new_feature_test)
+        print("Training set sample number remains the same")
+        return X_train_new,y_train,X_test_new,y_test
+      
+    def genLeafFeature(self,X,y):
+        return X_leaf_feature
+    
+    def fit(self, X, y):
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+        #generate new feature with partial data
+        X_train2,y_train2, X_test2, y_test2 = self.fit_model_split(X_train,y_train,X_test,y_test)
+        self.lr_model.fit(X_train2,y_train2)
+        y_pre= self.gbdt_model.predict(X_test2)
+        y_pro= self.gbdt_model.predict_proba(X_test2)[:,1]
+        print("GBDT+LR Training AUC Score : {0}", metrics.roc_auc_score(y_test2, y_pro))
+        print("GBDT+LR  Training Accuracy : {0}" , metrics.accuracy_score(y_test2, y_pre))
+        return self
+        
+    def transform(self,X):
+        new_feature_test = self.gbdt_model.apply(X_test)
+        X_test_new = self.mergeToOne(X_test,new_feature_test)
+        return X_test_new
+        
+    def predict(self,X):
+        test1 = self.transform(test)
+        return self.lr_model.predict(test1)
+    
+    def predict_proba(self,X_test):
+        test1 = self.transform(X_test)
+        return self.lr_model.predict_proba(test1)
+    
 
-#from sklearn.model_selection import train_test_split
-#from sklearn import metrics
-#from sklearn.datasets  import  make_hastie_10_2
-#from xgboost.sklearn import XGBClassifier
-#from Xgboost_Feature import XgboostFeature
-#
-#X, y = make_hastie_10_2(random_state=0)
-#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)##test_size测试集合所占比例
-###自己设置xgboost模型参数 默认树个数30 
-#model=XgboostFeature(n_estimators=50)
-###切分训练集训练叶子特征模型 返回值是 原特征+新特征
-#X_train,y_train, X_test, y_test=model.fit_model_split(X_train, y_train,X_test, y_test)
-###不切分训练集训练叶子特征模型  返回值 是原特征+新特征
-#X_train,y_train, X_test, y_test=model.fit_model(X_train, y_train,X_test, y_test)
+class LightgbmLRClassifer(BaseEstimator):
+    def __init__(self,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.8,colsample_bytree=0.8,objective= 'binary',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
+        #gbdt model parameters
+        self.n_estimators=n_estimators
+        self.learning_rate=learning_rate
+        self.max_depth=max_depth
+        self.min_child_weight=min_child_weight
+        self.gamma=gamma
+        self.subsample=subsample
+        self.colsample_bytree=colsample_bytree
+        self.objective=objective
+        self.nthread=nthread
+        self.scale_pos_weight=scale_pos_weight
+        self.reg_alpha=reg_alpha
+        self.reg_lambda=reg_lambda
+        self.seed=seed
+        print("init gbdt model:{0}",n_estimators)
+#        boosting_type='gbdt', num_leaves=31,  subsample_for_bin=200000,  min_split_gain=0.0,   min_child_samples=20, subsample=1.0, subsample_freq=1,   random_state=None
+        self.gbdt_model = lgb.LGBMModel(
+               learning_rate =self.learning_rate,
+               n_estimators=self.n_estimators,
+               max_depth=self.max_depth,
+               min_child_weight=self.min_child_weight,
+               gamma=self.gamma,
+               subsample=self.subsample,
+               colsample_bytree=self.colsample_bytree,
+               objective= self.objective,
+               nthread=self.nthread,
+               scale_pos_weight=self.scale_pos_weight,
+               reg_alpha=self.reg_alpha,
+               reg_lambda=self.reg_lambda,
+               seed=self.seed)
+        #lr model parameters
+        self.lr_penalty = lr_penalty
+        self.lr_c = lr_c
+        self.lr_random_state = lr_random_state
+        print("init lr model")
+        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, random_state=lr_random_state)
+        #numerical feature binner
+        self.numerical_feature_processor = None
 
-
-
-
-
-
-
-
+    def mergeToOne(self,X,X2):
+        X3=[]
+        for i in xrange(X.shape[0]):
+            tmp=np.array([list(X[i]),list(X2[i])])
+            X3.append(list(np.hstack(tmp)))
+        X3=np.array(X3)
+        return X3
+    
+    ##切割训练
+    def fit_model_split(self,X_train,y_train,X_test,y_test):
+        ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
+        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=0)
+        self.gbdt_model.fit(X_train_1, y_train_1)
+        y_pre= self.gbdt_model.predict(X_train_2)
+        y_pro= self.gbdt_model.predict_proba(X_train_2)[:,1]
+        print("pred_leaf=T AUC Score :{0}" ,metrics.roc_auc_score(y_train_2, y_pro))
+        print("pred_leaf=T  Accuracy : {0}" , metrics.accuracy_score(y_train_2, y_pre))
+        new_feature = self.gbdt_model.apply(X_train_2)
+        X_train_new2=self.mergeToOne(X_train_2,new_feature)
+        new_feature_test= self.gbdt_model.apply(X_test)
+        X_test_new=self.mergeToOne(X_test,new_feature_test)
+        print("Training set of sample size 0.4 fewer than before")
+        return X_train_new2,y_train_2,X_test_new,y_test
+    
+    ##整体训练
+    def fit_model(self,X_train,y_train,X_test,y_test):
+        self.gbdt_model.fit(X_train, y_train)
+        y_pre= self.gbdt_model.predict(X_test)
+        y_pro= self.gbdt_model.predict_proba(X_test)[:,1]
+        print( "pred_leaf=T  AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
+        print("pred_leaf=T  Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
+        new_feature= self.gbdt_model.apply(X_train)
+        X_train_new=self.mergeToOne(X_train,new_feature)
+        new_feature_test= self.gbdt_model.apply(X_test)
+        X_test_new=self.mergeToOne(X_test,new_feature_test)
+        print("Training set sample number remains the same")
+        return X_train_new,y_train,X_test_new,y_test
+      
+    def genLeafFeature(self,X,y):
+        return X_leaf_feature
+    
+    def fit(self, X, y):
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+        #generate new feature with partial data
+        X_train2,y_train2, X_test2, y_test2 = self.fit_model_split(X_train,y_train,X_test,y_test)
+        self.lr_model.fit(X_train2,y_train2)
+        y_pre= self.gbdt_model.predict(X_test2)
+        y_pro= self.gbdt_model.predict_proba(X_test2)[:,1]
+        print("GBDT+LR Training AUC Score : {0}", metrics.roc_auc_score(y_test2, y_pro))
+        print("GBDT+LR  Training Accuracy : {0}" , metrics.accuracy_score(y_test2, y_pre))
+        return self
+        
+    def transform(self,X):
+        new_feature_test = self.gbdt_model.apply(X_test)
+        X_test_new = self.mergeToOne(X_test,new_feature_test)
+        return X_test_new
+        
+    def predict(self,X):
+        test1 = self.transform(test)
+        return self.lr_model.predict(test1)
+    
+    def predict_proba(self,X_test):
+        test1 = self.transform(X_test)
+        return self.lr_model.predict_proba(test1)
+    

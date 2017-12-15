@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
+import json
 from dateutil.parser import parse
 from pandas.io.json import json_normalize
 
-data=pd.read_csv("E:/dataset/rec_data_save.csv",sep=',')
+#data=pd.read_csv("E:/dataset/rec_data.csv",sep=',')
+data=pd.read_csv("~/dataset/rec_data.csv",sep=',')
 cat_df = json_normalize(data['cat_pref'].apply(lambda x:json.loads(x)).tolist())
 cat_df.fillna(0,inplace=True)
 
@@ -20,11 +22,11 @@ data['dayOfMonth'] = data['request_time'].apply(lambda x: parse(x).day)
 
 pref = pd.concat([cat_df,amt_df,period_df],axis=1)
 
-columns = ['app_version','hourOfDay','dayOfWeek','dayOfMonth','address','rec','user_id','user_group','click','invest','invest_amount','cust_level','gender','age','nationality','mobile_no_attribution','total_balance','curr_aum_amt','highest_asset_amt','risk_verify_status_cn','fst_invest_days','invest_period_by_days','product_price','product_category','risk_level','item','transfer_flag']
+columns = ['rd','app_version','hourOfDay','dayOfWeek','dayOfMonth','address','rec','user_id','user_group','click','invest','invest_amount','cust_level','gender','age','nationality','total_balance','curr_aum_amt','highest_asset_amt','risk_verify_status_cn','fst_invest_days','invest_period_by_days','product_price','product_category','risk_level','item','transfer_flag']
 
 ff = pd.concat([data[columns],pref],axis=1)
 fo= ff.loc[~(ff['invest']==1 & ff['invest_amount'].isnull())]
-fo.to_csv("E:/dataset/rec_data_save.csv",index=False,header=True)
+fo.to_csv("E:/dataset/rec_data_train_save.csv",index=False,header=True)
 
 
 import pandas as pd
@@ -83,12 +85,12 @@ import gc
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 import xgboost as xgb
-from processor import *
-#data=pd.read_csv("~/dataset/rec_data_train_save.csv",sep=',')
-data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
+#from processor import *
+data=pd.read_csv("E:/dataset/rec_data_train_save.csv",sep=',')
+#data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
 print(data.columns.values)
 y=data['invest']
-data.drop(['invest','invest_amount','mobile_no_attribution'],axis=1,inplace=True)
+data.drop(['rd','invest','invest_amount','mobile_no_attribution'],axis=1,inplace=True)
 #X=data[[col for col in data.columns if col not in ['invest','invest_amount']]]
 X=data
 #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999,stratify=y)
