@@ -1,124 +1,122 @@
-# coding: utf-8
-# pylint: disable = invalid-name, C0111
-from __future__ import division
-import json
-import lightgbm as lgb
-import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_squared_error
+import xgboost as xgb
+from sklearn import metrics
+from sklearn.base import BaseEstimator
 from sklearn.linear_model import LogisticRegression
-
-# load or create your dataset
-print('Load data...')
-df_train = pd.read_csv('../train.txt', header=None, sep=' ')
-df_test = pd.read_csv('../test.txt', header=None, sep=' ')
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
 
 
-y_train = df_train[0]  # training label
-y_test = df_test[0]   # testing label
-X_train = df_train.drop(0, axis=1)  # training dataset
-X_test = df_test.drop(0, axis=1)  # testing dataset
+class XgboostLRClassifier(BaseEstimator):
+    def __init__(self, n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3, subsample=0.7,
+                 colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1, reg_alpha=1e-05,
+                 reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0, lr_random_state=42):
+        # gbdt model parameters
+        self.n_estimators = n_estimators
+        self.learning_rate = learning_rate
+        self.max_depth = max_depth
+        self.min_child_weight = min_child_weight
+        self.gamma = gamma
+        self.subsample = subsample
+        self.colsample_bytree = colsample_bytree
+        self.objective = objective
+        self.nthread = nthread
+        self.scale_pos_weight = scale_pos_weight
+        self.reg_alpha = reg_alpha
+        self.reg_lambda = reg_lambda
+        self.seed = seed
+        print("init gbdt model:{0}".format(n_estimators))
+        self.gbdt_model = xgb.XGBClassifier(
+            learning_rate=self.learning_rate,
+            n_estimators=self.n_estimators,
+            max_depth=self.max_depth,
+            min_child_weight=self.min_child_weight,
+            gamma=self.gamma,
+            subsample=self.subsample,
+            colsample_bytree=self.colsample_bytree,
+            objective=self.objective,
+            nthread=self.nthread,
+            scale_pos_weight=self.scale_pos_weight,
+            reg_alpha=self.reg_alpha,
+            reg_lambda=self.reg_lambda,
+            seed=self.seed)
+        # lr model parameters
+        self.lr_penalty = lr_penalty
+        self.lr_c = lr_c
+        self.lr_random_state = lr_random_state
+        print("init lr model")
+        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',
+                                           random_state=lr_random_state)
+        # numerical feature binner
+        self.one_hot_encoder = OneHotEncoder()
+        self.numerical_feature_processor = None
 
-# create dataset for lightgbm
-lgb_train = lgb.Dataset(X_train, y_train)
-lgb_eval = lgb.Dataset(X_test, y_test, reference=lgb_train)
+    def gen_gbdt_features(self, pred_leaves, num_leaves=None):
+        if num_leaves is None:
+            num_leaves = np.amax(pred_leaves)
 
-# specify your configurations as a dict
-params = {
-    'task': 'train',
-    'boosting_type': 'gbdt',
-    'objective': 'binary',
-    'metric': {'binary_logloss'},
-    'num_leaves': 63,
-	'num_trees': 100,
-    'learning_rate': 0.01,
-    'feature_fraction': 0.9,
-    'bagging_fraction': 0.8,
-    'bagging_freq': 5,
-    'verbose': 0
-}
+        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        return gbdt_feature_matrix
 
-# number of leaves,will be used in feature transformation
-num_leaf = 63
+    def gen_gbdt_lr_features(self, origin_features, pred_leaves, num_leaves=None):
+        if num_leaves is None:
+            num_leaves = np.amax(pred_leaves)
 
+        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        print("orginfeatures:{0},predleaves:{1}".format(origin_features.shape, gbdt_feature_matrix.shape))
+        gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix.todense()), axis=1)
+        return gbdt_lr_feature_matrix
 
-print('Start training...')
-# train
-gbm = lgb.train(params,
-                lgb_train,
-                num_boost_round=100,
-                valid_sets=lgb_train)
+    ##切割训练
+    def fit_model_split(self, X_train, y_train, X_test, y_test):
+        ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
+        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=999)
+        self.gbdt_model.fit(X_train_1, y_train_1)
+        y_pre = self.gbdt_model.predict(X_train_2)
+        y_pro = self.gbdt_model.predict_proba(X_train_2)[:, 1]
+        print("pred_leaf=T AUC Score :{0}".format(metrics.roc_auc_score(y_train_2, y_pro)))
+        print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_train_2, y_pre)))
+        new_feature = self.gbdt_model.apply(X_train_2)
+        X_train_new2 = self.gen_gbdt_lr_features(X_train_2, new_feature)
+        new_feature_test = self.gbdt_model.apply(X_test)
+        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test)
+        print("Training set of sample size 0.4 fewer than before")
+        return X_train_new2, y_train_2, X_test_new, y_test
 
-print('Save model...')
-# save model to file
-gbm.save_model('model.txt')
+    ##整体训练
+    def fit_model(self, X_train, y_train, X_test, y_test):
+        self.gbdt_model.fit(X_train, y_train)
+        y_pre = self.gbdt_model.predict(X_test)
+        y_pro = self.gbdt_model.predict_proba(X_test)[:, 1]
+        print("pred_leaf=T  AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
+        print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+        new_feature = self.gbdt_model.apply(X_train)
+        X_train_new = self.gen_gbdt_lr_features(X_train, new_feature)
+        new_feature_test = self.gbdt_model.apply(X_test)
+        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test)
+        print("Training set sample number remains the same")
+        return X_train_new, y_train, X_test_new, y_test
 
-print('Start predicting...')
-# predict and get data on leaves, training data
-y_pred = gbm.predict(X_train,pred_leaf=True)
+    def fit(self, X, y):
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
+        # generate new feature with partial data
+        X_train2, y_train2, X_test2, y_test2 = self.fit_model(X_train, y_train, X_test, y_test)
+        self.lr_model.fit(X_train2, y_train2)
+        y_pre = self.lr_model.predict(X_test2)
+        y_pro = self.lr_model.predict_proba(X_test2)[:, 1]
+        print("GBDT+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
+        print("GBDT+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
+        return self
 
-# feature transformation and write result
-print('Writing transformed training data')
-transformed_training_matrix = np.zeros([len(y_pred),len(y_pred[0]) * num_leaf],dtype=np.int64)
-for i in range(0,len(y_pred)):
-	temp = np.arange(len(y_pred[0])) * num_leaf - 1 + np.array(y_pred[i])
-	transformed_training_matrix[i][temp] += 1
+    def transform(self, X):
+        new_feature_test = self.gbdt_model.apply(X)
+        X_test_new = self.gen_gbdt_lr_features(X, new_feature_test)
+        return X_test_new
 
-#for i in range(0,len(y_pred)):
-#	for j in range(0,len(y_pred[i])):
-#		transformed_training_matrix[i][j * num_leaf + y_pred[i][j]-1] = 1
+    def predict(self, X):
+        test1 = self.transform(X)
+        return self.lr_model.predict(test1)
 
-# predict and get data on leaves, testing data
-y_pred = gbm.predict(X_test,pred_leaf=True)
-
-# feature transformation and write result
-print('Writing transformed testing data')
-transformed_testing_matrix = np.zeros([len(y_pred),len(y_pred[0]) * num_leaf],dtype=np.int64)
-for i in range(0,len(y_pred)):
-	temp = np.arange(len(y_pred[0])) * num_leaf - 1 + np.array(y_pred[i])
-	transformed_testing_matrix[i][temp] += 1
-
-#for i in range(0,len(y_pred)):
-#	for j in range(0,len(y_pred[i])):
-#		transformed_testing_matrix[i][j * num_leaf + y_pred[i][j]-1] = 1
-
-print('Calculate feature importances...')
-# feature importances
-print('Feature importances:', list(gbm.feature_importance()))
-print('Feature importances:', list(gbm.feature_importance("gain")))
-
-
-# Logestic Regression Start
-print("Logestic Regression Start")
-
-# load or create your dataset
-print('Load data...')
-
-c = np.array([1,0.5,0.1,0.05,0.01,0.005,0.001])
-for t in range(0,len(c)):
-	lm = LogisticRegression(penalty='l2',C=c[t]) # logestic model construction
-	lm.fit(transformed_training_matrix,y_train)  # fitting the data
-
-	#y_pred_label = lm.predict(transformed_training_matrix )  # For training data
-	#y_pred_label = lm.predict(transformed_testing_matrix)    # For testing data
-	#y_pred_est = lm.predict_proba(transformed_training_matrix)   # Give the probabilty on each label
-	y_pred_est = lm.predict_proba(transformed_testing_matrix)   # Give the probabilty on each label
-
-#print('number of testing data is ' + str(len(y_pred_label)))
-#print(y_pred_est)
-
-# calculate predict accuracy
-	#num = 0
-	#for i in range(0,len(y_pred_label)):
-		#if y_test[i] == y_pred_label[i]:
-	#	if y_train[i] == y_pred_label[i]:
-	#		num += 1
-	#print('penalty parameter is '+ str(c[t]))
-	#print("prediction accuracy is " + str((num)/len(y_pred_label)))
-
-	# Calculate the Normalized Cross-Entropy
-	# for testing data
-	NE = (-1) / len(y_pred_est) * sum(((1+y_test)/2 * np.log(y_pred_est[:,1]) +  (1-y_test)/2 * np.log(1 - y_pred_est[:,1])))
-	# for training data
-	#NE = (-1) / len(y_pred_est) * sum(((1+y_train)/2 * np.log(y_pred_est[:,1]) +  (1-y_train)/2 * np.log(1 - y_pred_est[:,1])))
-	print("Normalized Cross Entropy " + str(NE))
+    def predict_proba(self, X):
+        test1 = self.transform(X)
+        return self.lr_model.predict_proba(test1)

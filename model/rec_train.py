@@ -139,6 +139,14 @@ print("GBDT+LR  Test Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
 gbm = xgb.XGBClassifier(n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27)
 gbm.fit(X_train,y_train)
 y_pre= gbm.predict(X_test)
+y_pred = gbm.apply(X_test)
+
+transformed_training_matrix = np.zeros([len(y_pred),len(y_pred[0]) * num_leaf],dtype=np.int64)
+for i in range(0,len(y_pred)):
+	temp = np.arange(len(y_pred[0])) * num_leaf - 1 + np.array(y_pred[i])
+	transformed_training_matrix[i][temp] += 1
+    
+    
 y_pro= gbm.predict_proba(X_test)[:,1]
 print("Xgboost model Test AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
 print("Xgboost model Test Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
