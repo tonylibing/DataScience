@@ -11,7 +11,7 @@ from sklearn.preprocessing import OneHotEncoder
 class XgboostLRClassifier(BaseEstimator):
     def __init__(self, combine_feature = True, n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3, subsample=0.7,
                  colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1, reg_alpha=1e-05,
-                 reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0, lr_random_state=42):
+                 reg_lambda=1, seed=27, lr_penalty='l1', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
         # gbdt model parameters
         self.n_estimators = n_estimators
@@ -69,7 +69,6 @@ class XgboostLRClassifier(BaseEstimator):
         gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix.todense()), axis=1)
         return gbdt_lr_feature_matrix
 
-    ##切割训练
     def fit_model_split(self, X_train, y_train, X_test, y_test):
         ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
         X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=999)
@@ -85,7 +84,6 @@ class XgboostLRClassifier(BaseEstimator):
         print("Training set of sample size 0.4 fewer than before")
         return X_train_new2, y_train_2, X_test_new, y_test
 
-    ##整体训练
     def fit_model(self, X_train, y_train, X_test, y_test):
         self.gbdt_model.fit(X_train, y_train)
         y_pre = self.gbdt_model.predict(X_test)
@@ -127,7 +125,7 @@ class XgboostLRClassifier(BaseEstimator):
 class LightgbmLRClassifier(BaseEstimator):
     def __init__(self, combine_feature = True,n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3,
                  subsample=0.7, colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1,
-                 reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0, lr_random_state=42):
+                 reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l1', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
         # gbdt model parameters
         self.n_estimators = n_estimators
@@ -186,7 +184,6 @@ class LightgbmLRClassifier(BaseEstimator):
         gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix.todense()), axis=1)
         return gbdt_lr_feature_matrix
 
-    ##切割训练
     def fit_model_split(self, X_train, y_train, X_test, y_test):
         ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
         X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=999)
@@ -202,7 +199,6 @@ class LightgbmLRClassifier(BaseEstimator):
         print("Training set of sample size 0.4 fewer than before")
         return X_train_new2, y_train_2, X_test_new, y_test
 
-    ##整体训练
     def fit_model(self, X_train, y_train, X_test, y_test):
         self.gbdt_model.fit(X_train, y_train)
         y_pre = self.gbdt_model.predict(X_test)

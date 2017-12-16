@@ -27,7 +27,6 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.svm import LinearSVC
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
-
 def ColumnInfo(df, col):
     print(col)
     col_type = ''
@@ -60,7 +59,6 @@ def ColumnInfo(df, col):
 
     return col, col_type, missing_pct
 
-
 def ColumnSummary(df, label_col='label', id_cols=None):
     column_info = pd.DataFrame([(ColumnInfo(df, col)) for col in tqdm(df.columns.values, desc='Columns Info')])
     column_info.columns = ['col_name', 'ColumnType', 'missing_pct']
@@ -69,9 +67,8 @@ def ColumnSummary(df, label_col='label', id_cols=None):
     # print(summary.columns)
     all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
     all.drop('col_name', axis=1)
-    all.to_csv('colummn_summary.csv', index=False, header=True)
+    all.to_csv('colummn_summary.csv',index=False,header=True)
     return all
-
 
 class BaseFeatureProcessor:
     def __init__(self, col_name, feature_type, params):
@@ -84,7 +81,6 @@ class BaseFeatureProcessor:
 
     def load(self):
         pass
-
 
 class FeatureProcessor(BaseEstimator):
     """
@@ -132,7 +128,7 @@ class FeatureProcessor(BaseEstimator):
                         fp = CategoricalFeatureTransformer(col, col_type, {})
                         self.feature_processors.append(fp)
 
-        print("=" * 60)
+        print("="*60)
         for fp in self.feature_processors:
             print('col:{0},type:{1},params:{2}'.format(fp.col_name, fp.col_type, fp.params))
 
@@ -146,7 +142,7 @@ class FeatureProcessor(BaseEstimator):
             self.feature_offset[fp.col_name] = self.length
             self.length += fp.dimension
 
-        print("=" * 60)
+        print("="*60)
         print("feature_offset:{0}".format(self.feature_offset))
         return self
 
@@ -160,8 +156,8 @@ class FeatureProcessor(BaseEstimator):
         for i, v in enumerate(df_tmp.values):
             for k, vv in enumerate(v):
                 fp = self.feature_processors[k]
-                if 'categorical' == fp.col_type:
-                    # print("vv:{0},col_name:{1},type:{2}".format(vv, fp.col_name, fp.col_type))
+                if 'categorical'==fp.col_type:
+                    #print("vv:{0},col_name:{1},type:{2}".format(vv, fp.col_name, fp.col_type))
                     if pd.isnull(vv) == False:
                         data.append(1.0)
                         row_idx.append(i)
@@ -189,7 +185,6 @@ class FeatureProcessor(BaseEstimator):
 
     def __str__(self):
         return "\n".join(self.feature_processors)
-
 
 class ColumnExtractor(TransformerMixin):
     def __init__(self, columns):
@@ -315,7 +310,7 @@ class CategoricalFeatureTransformer(TransformerMixin):
 
         self.dimension = idx
         # print("id2feature:{0}".format(self.id2feature))
-        print("col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id))
+        print("col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name,self.col_type,self.feature2id))
         return self
 
     def transform(self, df):
@@ -326,8 +321,7 @@ class CategoricalFeatureTransformer(TransformerMixin):
         return self.fit(df).transform(df)
 
     def __str__(self):
-        return "col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id)
-
+        return "col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name,self.col_type,self.feature2id)
 
 class QuantileBinarizer(TransformerMixin):
     def __init__(self, columns):
@@ -709,7 +703,7 @@ def ProcessExtremeAndMissingTransformer(TransformerMixin):
                         # determine the sampled category using uniform distributed random variable
                         a = random.random(1)
                         position = \
-                            [k + 1 for k in range(len(freqCumsum) - 1) if freqCumsum[k] < a <= freqCumsum[k + 1]][0]
+                        [k + 1 for k in range(len(freqCumsum) - 1) if freqCumsum[k] < a <= freqCumsum[k + 1]][0]
                         missingList[i] = freqTuple[position - 1][0]
         print('The missing value in {0} has been made up with the mothod of {1}'.format(col, method))
         return missingList
@@ -773,7 +767,6 @@ class DayOfWeekTransformer(TransformerMixin):
     def transform(self, X):
         return X[self.columns]
 
-
 class DayOfMonthTransformer(TransformerMixin):
     def __init__(self, columns):
         self.columns = columns
@@ -783,7 +776,6 @@ class DayOfMonthTransformer(TransformerMixin):
 
     def transform(self, X):
         return X[self.columns]
-
 
 class DateTimeTransformer(TransformerMixin):
     def __init__(self, column):
@@ -800,25 +792,23 @@ class DateTimeTransformer(TransformerMixin):
         X['dayOfMonth'] = X[self.column].apply(lambda x: parse(x).day)
         return X
 
-
 class FlattenJsonTransformer(TransformerMixin):
-    def fit(self, X):
+    def fit(self,X):
         return self
 
-    def transform(self, X, columns):
+    def transform(self, X,columns):
         if columns is None:
-            return X
+            return X 
 
         for col in columns:
             X_tmp = json_normalize(X[col].apply(lambda x: json.loads(x)).tolist())
-            X = pd.concat([X, X_tmp], axis=1)
+            X = pd.concat([X,X_tmp],axis=1)
 
-        X.drop(columns, axis=1, inplace=True)
+        X.drop(columns,axis=1,inplace=True)
         return X
 
-    def fit_transform(self, X, columns):
-        return self.fit(X).transform(X, columns)
-
+    def fit_transform(self, X,columns):
+        return self.fit(X).transform(X,columns)
 
 class VarianceSelector(TransformerMixin):
     def __init__(self):
@@ -828,23 +818,22 @@ class VarianceSelector(TransformerMixin):
         return self
 
     def transform(self, X):
-        X_sel = self.sel.fit_transform(X)
+        X_sel=self.sel.fit_transform(X)
         return X_sel
-
-    def fit_transform(self, X):
-        X_sel = self.sel.fit_transform(X)
+    
+    def fit_transform(self,X):
+        X_sel=self.sel.fit_transform(X)
         return X_sel
-
 
 class Chi2KBestSelector(TransformerMixin):
     def fit(self, X):
         return self
 
-    def transform(self, X, y):
+    def transform(self, X,y):
         X_chi2 = SelectKBest(chi2, k=5).fit_transform(X, y)
         return X_chi2
-
-    def fit_transform(self, X, y):
+    
+    def fit_transform(self,X,y):
         X_chi2 = SelectKBest(chi2, k=5).fit_transform(X, y)
         return X_chi2
 
@@ -852,18 +841,18 @@ class Chi2KBestSelector(TransformerMixin):
 class L1KBestSelector(TransformerMixin):
     def __init__(self):
         self.lsvc = LinearSVC(C=0.01, penalty="l1", dual=False)
-
-    def fit(self, X_scaler, y):
+        
+    def fit(self, X_scaler,y):
         self.lsvc.fit(X_scaler, y)
         return self
 
-    def transform(self, X_scaler, y):
+    def transform(self, X_scaler,y):
         lsvc = self.lsvc.fit(X_scaler, y)
         model = SelectFromModel(lsvc, prefit=True)
         X_lsvc = model.transform(X_scaler)
         return X_lsvc
-
-    def fit_transform(self, X_scaler, y):
+    
+    def fit_transform(self,X_scaler,y):
         lsvc = self.lsvc.fit(X_scaler, y)
         model = SelectFromModel(lsvc, prefit=True)
         X_lsvc = model.transform(X_scaler)
@@ -918,52 +907,48 @@ class ReduceVIF(BaseEstimator, TransformerMixin):
 
 
 class XgboostLRClassifier(BaseEstimator):
-    def __init__(self, combine_feature=False, n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1,
-                 gamma=0.3, subsample=0.7, colsample_bytree=0.7, objective='binary:logistic', nthread=-1,
-                 scale_pos_weight=1, reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0,
-                 lr_random_state=42):
+    def __init__(self,combine_feature = False,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
-        # gbdt model parameters
-        self.n_estimators = n_estimators
-        self.learning_rate = learning_rate
-        self.max_depth = max_depth
-        self.min_child_weight = min_child_weight
-        self.gamma = gamma
-        self.subsample = subsample
-        self.colsample_bytree = colsample_bytree
-        self.objective = objective
-        self.nthread = nthread
-        self.scale_pos_weight = scale_pos_weight
-        self.reg_alpha = reg_alpha
-        self.reg_lambda = reg_lambda
-        self.seed = seed
+        #gbdt model parameters
+        self.n_estimators=n_estimators
+        self.learning_rate=learning_rate
+        self.max_depth=max_depth
+        self.min_child_weight=min_child_weight
+        self.gamma=gamma
+        self.subsample=subsample
+        self.colsample_bytree=colsample_bytree
+        self.objective=objective
+        self.nthread=nthread
+        self.scale_pos_weight=scale_pos_weight
+        self.reg_alpha=reg_alpha
+        self.reg_lambda=reg_lambda
+        self.seed=seed
         print("init gbdt model:{0}".format(n_estimators))
         self.gbdt_model = xgb.XGBClassifier(
-            learning_rate=self.learning_rate,
-            n_estimators=self.n_estimators,
-            max_depth=self.max_depth,
-            min_child_weight=self.min_child_weight,
-            gamma=self.gamma,
-            subsample=self.subsample,
-            colsample_bytree=self.colsample_bytree,
-            objective=self.objective,
-            nthread=self.nthread,
-            scale_pos_weight=self.scale_pos_weight,
-            reg_alpha=self.reg_alpha,
-            reg_lambda=self.reg_lambda,
-            seed=self.seed)
-        # lr model parameters
+               learning_rate =self.learning_rate,
+               n_estimators=self.n_estimators,
+               max_depth=self.max_depth,
+               min_child_weight=self.min_child_weight,
+               gamma=self.gamma,
+               subsample=self.subsample,
+               colsample_bytree=self.colsample_bytree,
+               objective= self.objective,
+               nthread=self.nthread,
+               scale_pos_weight=self.scale_pos_weight,
+               reg_alpha=self.reg_alpha,
+               reg_lambda=self.reg_lambda,
+               seed=self.seed)
+        #lr model parameters
         self.lr_penalty = lr_penalty
         self.lr_c = lr_c
         self.lr_random_state = lr_random_state
         print("init lr model")
-        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',
-                                           random_state=lr_random_state)
-        # numerical feature binner
+        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4,solver='liblinear',random_state=lr_random_state)
+        #numerical feature binner
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
 
-    def gen_gbdt_features(self, pred_leaves, num_leaves=None):
+    def gen_gbdt_features(self,pred_leaves,num_leaves=None):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
@@ -975,8 +960,8 @@ class XgboostLRClassifier(BaseEstimator):
             num_leaves = np.amax(pred_leaves)
 
         gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        print("orgin_features:{0},pred_leaves:{1}".format(origin_features.shape, gbdt_feature_matrix.shape))
-        gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix.todense()), axis=1)
+        print("orgin_features:{0},pred_leaves:{1}".format(origin_features.shape,gbdt_feature_matrix.shape))
+        gbdt_lr_feature_matrix = np.concatenate((origin_features,gbdt_feature_matrix.todense()),axis=1)
         return gbdt_lr_feature_matrix
 
     def fit_model_split(self, X_train, y_train, X_test, y_test):
@@ -988,13 +973,9 @@ class XgboostLRClassifier(BaseEstimator):
         print("pred_leaf=T AUC Score :{0}".format(metrics.roc_auc_score(y_train_2, y_pro)))
         print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_train_2, y_pre)))
         new_feature = self.gbdt_model.apply(X_train_2)
-        X_train_new2 = self.gen_gbdt_lr_features(X_train_2,
-                                                 new_feature) if self.combine_feature else self.gen_gbdt_features(
-            new_feature)
+        X_train_new2 = self.gen_gbdt_lr_features(X_train_2, new_feature) if self.combine_feature else self.gen_gbdt_features(new_feature)
         new_feature_test = self.gbdt_model.apply(X_test)
-        X_test_new = self.gen_gbdt_lr_features(X_test,
-                                               new_feature_test) if self.combine_feature else self.gen_gbdt_features(
-            new_feature_test)
+        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
         print("Training set of sample size 0.4 fewer than before")
         return X_train_new2, y_train_2, X_test_new, y_test
 
@@ -1005,13 +986,9 @@ class XgboostLRClassifier(BaseEstimator):
         print("pred_leaf=T  AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
         print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
         new_feature = self.gbdt_model.apply(X_train)
-        X_train_new = self.gen_gbdt_lr_features(X_train,
-                                                new_feature) if self.combine_feature else self.gen_gbdt_features(
-            new_feature)
+        X_train_new = self.gen_gbdt_lr_features(X_train, new_feature) if self.combine_feature else self.gen_gbdt_features(new_feature)
         new_feature_test = self.gbdt_model.apply(X_test)
-        X_test_new = self.gen_gbdt_lr_features(X_test,
-                                               new_feature_test) if self.combine_feature else self.gen_gbdt_features(
-            new_feature_test)
+        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
         print("Training set sample number remains the same")
         return X_train_new, y_train, X_test_new, y_test
 
@@ -1028,8 +1005,7 @@ class XgboostLRClassifier(BaseEstimator):
 
     def transform(self, X):
         new_feature_test = self.gbdt_model.apply(X)
-        X_test_new = self.gen_gbdt_lr_features(X, new_feature_test) if self.combine_feature else self.gen_gbdt_features(
-            new_feature_test)
+        X_test_new = self.gen_gbdt_lr_features(X, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
         return X_test_new
 
     def predict(self, X):
@@ -1040,10 +1016,8 @@ class XgboostLRClassifier(BaseEstimator):
         test1 = self.transform(X)
         return self.lr_model.predict_proba(test1)
 
-
 class LightgbmLRClassifier(BaseEstimator):
-    def __init__(self, combine_feature=True, n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1,
-                 gamma=0.3,
+    def __init__(self, combine_feature = True,n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3,
                  subsample=0.7, colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1,
                  reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
@@ -1076,9 +1050,7 @@ class LightgbmLRClassifier(BaseEstimator):
         #     reg_alpha=self.reg_alpha,
         #     reg_lambda=self.reg_lambda,
         #     seed=self.seed)
-        self.gbdt_model = lgb.LGBMClassifier(boosting_type='gbdt', max_depth=3, learning_rate=0.3, n_estimators=30,
-                                             min_child_weight=1, subsample=0.7, colsample_bytree=0.7, reg_alpha=1e-05,
-                                             reg_lambda=1)
+        self.gbdt_model = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
         # lr model parameters
         self.lr_penalty = lr_penalty
         self.lr_c = lr_c
@@ -1115,13 +1087,9 @@ class LightgbmLRClassifier(BaseEstimator):
         print("pred_leaf=T AUC Score :{0}".format(metrics.roc_auc_score(y_train_2, y_pro)))
         print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_train_2, y_pre)))
         new_feature = self.gbdt_model.apply(X_train_2)
-        X_train_new2 = self.gen_gbdt_lr_features(X_train_2,
-                                                 new_feature) if self.combine_feature else self.gen_gbdt_features(
-            new_feature)
+        X_train_new2 = self.gen_gbdt_lr_features(X_train_2, new_feature) if self.combine_feature else self.gen_gbdt_features(new_feature)
         new_feature_test = self.gbdt_model.apply(X_test)
-        X_test_new = self.gen_gbdt_lr_features(X_test,
-                                               new_feature_test) if self.combine_feature else self.gen_gbdt_features(
-            new_feature_test)
+        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
         print("Training set of sample size 0.4 fewer than before")
         return X_train_new2, y_train_2, X_test_new, y_test
 
@@ -1132,13 +1100,9 @@ class LightgbmLRClassifier(BaseEstimator):
         print("pred_leaf=T  AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
         print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
         new_feature = self.gbdt_model.apply(X_train)
-        X_train_new = self.gen_gbdt_lr_features(X_train,
-                                                new_feature) if self.combine_feature else self.gen_gbdt_features(
-            new_feature)
+        X_train_new = self.gen_gbdt_lr_features(X_train, new_feature) if self.combine_feature else self.gen_gbdt_features(new_feature)
         new_feature_test = self.gbdt_model.apply(X_test)
-        X_test_new = self.gen_gbdt_lr_features(X_test,
-                                               new_feature_test) if self.combine_feature else self.gen_gbdt_features(
-            new_feature_test)
+        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
         print("Training set sample number remains the same")
         return X_train_new, y_train, X_test_new, y_test
 
@@ -1155,8 +1119,7 @@ class LightgbmLRClassifier(BaseEstimator):
 
     def transform(self, X):
         new_feature_test = self.gbdt_model.apply(X)
-        X_test_new = self.gen_gbdt_lr_features(X, new_feature_test) if self.combine_feature else self.gen_gbdt_features(
-            new_feature_test)
+        X_test_new = self.gen_gbdt_lr_features(X, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
         return X_test_new
 
     def predict(self, X):

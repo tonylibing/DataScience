@@ -58,55 +58,60 @@ gbm = xgb.XGBClassifier(max_depth=3, n_estimators=50, learning_rate=0.08,
 
 gbm.fit(X_train[[col for col in X_train.columns if col not in ['sample_weight'] ]],y_train,sample_weight=X_train['sample_weight'])
 
-
-
-
-
-from imblearn.ensemble import EasyEnsemble
-from imblearn.under_sampling import RandomUnderSampler 
-
-n_subsets = int(sum(y==0)/sum(y==1))
-ee = EasyEnsemble(n_subsets=n_subsets)
-sample_X, sample_y = ee.fit_sample(X, y)
-
-rus = RandomUnderSampler(random_state=42)
-X_res, y_res = rus.fit_sample(X, y)
-
-from sklearn.model_selection import train_test_split
-X_n = X.loc[y==0]
-X_n_drop,X_n_retain = train_test_split(X_n, test_size=0.01, random_state=0, stratify=X_n[['cust_level','product_category']])
-
-#no weight
-
-
-
 import pandas as pd
 import numpy as np
 import gc
+import sys
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 import xgboost as xgb
-#from processor import *
-data=pd.read_csv("E:/dataset/rec_data_train_save.csv",sep=',')
+import processor
+from importlib import reload
+reload(processor)
+from processor import *
+from imblearn.ensemble import EasyEnsemble
+from imblearn.under_sampling import RandomUnderSampler
+
+
+data=pd.read_csv("~/dataset/rec_data_train_3w.csv",sep=',')
 #data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
 print(data.columns.values)
 y=data['invest']
-data.drop(['rd','invest','invest_amount','mobile_no_attribution'],axis=1,inplace=True)
+data.drop(['rd','click','invest','invest_amount','mobile_no_attribution'],axis=1,inplace=True)
 #X=data[[col for col in data.columns if col not in ['invest','invest_amount']]]
 X=data
 #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999,stratify=y)
 
-bfp = FeatureProcessor(X)
-feature_matrix = bfp.fit_transform(X)
+n_subsets = int(sum(y==0)/sum(y==1))
+# ee = EasyEnsemble(n_subsets=n_subsets)
+# sample_X, sample_y = ee.fit_sample(X, y)
+
+# rus = RandomUnderSampler(random_state=42)
+# X_res, y_res = rus.fit_sample(X, y)
+
+from sklearn.model_selection import train_test_split
+X_n = X[y==0]
+y_n = y[y==0]
+X_y = X[y==1]
+y_y = y[y==1]
+X_n_drop,X_n_retain,y_n_drop,y_n_retain = train_test_split(X_n,y_n,test_size= 1.0/n_subsets, random_state=0, stratify=X_n[['cust_level']])
+X_new = pd.concat([X_n_retain,X_y],axis=0)
+y_new = pd.concat([y_n_retain,y_y],axis=0)
+
+#no weight
+X_new
+bfp = FeatureProcessor(X_new)
+feature_matrix = bfp.fit_transform(X_new)
+X_tain = xgb.DMatrix(feature_matrix, label=y_new)
+
+
+
 gbm = xgb.XGBClassifier(max_depth=3, n_estimators=50, learning_rate=0.08,
                               subsample=0.8, colsample_bytree=0.7,
                               objective="binary:logistic", seed=999)
 
-gbm.fit(feature_matrix,y)
+gbm.fit(feature_matrix,y_new)
 #gbm.fit(X_train,y_train)
-
-
-
 #test gbdt lr 
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
@@ -114,22 +119,22 @@ import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets  import  make_hastie_10_2
-from processor import *
+from GBDTLRClassifier import XgboostLRClassifier
+from GBDTLRClassifier import LightgbmLRClassifier
 
 X, y = make_hastie_10_2(random_state=0)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
 
 
-lr = LogisticRegression(C=1.0, penalty='l2', random_state=42)
+lr = LogisticRegression(C=1.0, penalty='l1',tol=1e-4, solver='liblinear', random_state=42)
 lr.fit(X_train,y_train)
 y_pre= lr.predict(X_test)
 y_pro= lr.predict_proba(X_test)[:,1]
 print("LR Test AUC Score : {0}", metrics.roc_auc_score(y_test, y_pro))
 print("LR  Test Accuracy : {0}" , metrics.accuracy_score(y_test, y_pre))
 
-
-gbdtlr = XgboostLRClassifer()
+gbdtlr = XgboostLRClassifier()
 gbdtlr.fit(X_train,y_train)
 y_pre= gbdtlr.predict(X_test)
 y_pro= gbdtlr.predict_proba(X_test)[:,1]
