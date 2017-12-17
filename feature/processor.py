@@ -1023,7 +1023,7 @@ class XgboostLRClassifier(BaseEstimator):
         self.gbdt_model.fit(X_train, y_train)
         y_pre = self.gbdt_model.predict(X_test)
         y_pro = self.gbdt_model.predict_proba(X_test)[:, 1]
-        print("pred_leaf=T  AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
+        print("pred_leaf=T  AUC Score: {0}".format(metrics.roc_auc_score(y_test, y_pro)))
         print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
         new_feature = self.gbdt_model.apply(X_train)
         X_train_new = self.gen_gbdt_lr_features(X_train,
@@ -1043,8 +1043,8 @@ class XgboostLRClassifier(BaseEstimator):
         self.lr_model.fit(X_train2, y_train2)
         y_pre = self.lr_model.predict(X_test2)
         y_pro = self.lr_model.predict_proba(X_test2)[:, 1]
-        print("GBDT+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
-        print("GBDT+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
+        print("Xgboost+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
+        print("Xgboost+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
         return self
 
     def transform(self, X):
@@ -1167,7 +1167,7 @@ class LightgbmLRClassifier(BaseEstimator):
         self.gbdt_model.fit(X_train, y_train)
         y_pre = self.gbdt_model.predict(X_test)
         y_pro = self.gbdt_model.predict_proba(X_test)[:, 1]
-        print("pred_leaf=T  AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
+        print("pred_leaf=T  AUC Score: {0}".format(metrics.roc_auc_score(y_test, y_pro)))
         print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
         new_feature = self.gbdt_model.apply(X_train)
         X_train_new = self.gen_gbdt_lr_features(X_train,
@@ -1187,8 +1187,8 @@ class LightgbmLRClassifier(BaseEstimator):
         self.lr_model.fit(X_train2, y_train2)
         y_pre = self.lr_model.predict(X_test2)
         y_pro = self.lr_model.predict_proba(X_test2)[:, 1]
-        print("GBDT+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
-        print("GBDT+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
+        print("Lightgbm+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
+        print("Lightgbm+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
         return self
 
     def transform(self, X):
