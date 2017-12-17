@@ -994,7 +994,7 @@ class XgboostLRClassifier(BaseEstimator):
 
     def fit_model_split(self, X_train, y_train, X_test, y_test):
         ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
-        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=999)
+        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.2, random_state=999,stratify=y_train)
         self.gbdt_model.fit(X_train_1, y_train_1)
         y_pre = self.gbdt_model.predict(X_train_2)
         y_pro = self.gbdt_model.predict_proba(X_train_2)[:, 1]
@@ -1021,7 +1021,7 @@ class XgboostLRClassifier(BaseEstimator):
         return X_train_new, y_train, X_test_new, y_test
 
     def fit(self, X, y):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=999,stratify=y)
         # generate new feature with partial data
         X_train2, y_train2, X_test2, y_test2 = self.fit_model(X_train, y_train, X_test, y_test)
         self.lr_model.fit(X_train2, y_train2)
@@ -1134,7 +1134,7 @@ class LightgbmLRClassifier(BaseEstimator):
 
     def fit_model_split(self, X_train, y_train, X_test, y_test):
         ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
-        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=999)
+        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.2, random_state=999,stratify=y_train)
         self.gbdt_model.fit(X_train_1, y_train_1)
         y_pre = self.gbdt_model.predict(X_train_2)
         y_pro = self.gbdt_model.predict_proba(X_train_2)[:, 1]
@@ -1161,7 +1161,7 @@ class LightgbmLRClassifier(BaseEstimator):
         return X_train_new, y_train, X_test_new, y_test
 
     def fit(self, X, y):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=999,stratify=y)
         # generate new feature with partial data
         X_train2, y_train2, X_test2, y_test2 = self.fit_model(X_train, y_train, X_test, y_test)
         self.lr_model.fit(X_train2, y_train2)

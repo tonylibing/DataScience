@@ -38,7 +38,7 @@ X_n = X[y==0]
 y_n = y[y==0]
 X_y = X[y==1]
 y_y = y[y==1]
-X_n_drop,X_n_retain,y_n_drop,y_n_retain = train_test_split(X_n,y_n,test_size= 1.0/n_subsets, random_state=0, stratify=X_n[['cust_level']])
+X_n_drop,X_n_retain,y_n_drop,y_n_retain = train_test_split(X_n,y_n,test_size= 1.0/n_subsets, random_state=0, stratify=X_n[['cust_level','product_category']])
 X_new = pd.concat([X_n_retain,X_y],axis=0)
 y_new = pd.concat([y_n_retain,y_y],axis=0)
 
