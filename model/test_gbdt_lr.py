@@ -58,3 +58,21 @@ print("Lightgbm+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_
 print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
 
+gbdtlr = XgboostLRClassifier(combine_feature=False)
+gbdtlr.fit(X_train,y_train)
+y_pre= gbdtlr.predict(X_test)
+y_pro= gbdtlr.predict_proba(X_test)[:,1]
+print("="*60)
+print("Xgboost+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
+print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("="*60)
+
+lgbmlr = LightgbmLRClassifier(combine_feature=False)
+lgbmlr.fit(X_train,y_train)
+y_pre= lgbmlr.predict(X_test)
+y_pro= lgbmlr.predict_proba(X_test)[:,1]
+print("="*60)
+print("Lightgbm+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
+print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("="*60)
+

@@ -955,7 +955,15 @@ class XgboostLRClassifier(BaseEstimator):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
-        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # return gbdt_feature_matrix
+        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
+        for i in range(0, len(pred_leaves)):
+            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
+            gbdt_feature_matrix[i][temp] += 1
+
+        print("pred_leaves:{0},gbdt_feature_matrix:{1},num_leaves:{2}".format(pred_leaves.shape,gbdt_feature_matrix.shape,num_leaves))
+
         return gbdt_feature_matrix
 
     def gen_gbdt_lr_features(self, origin_features, pred_leaves, num_leaves=None):
@@ -1086,7 +1094,16 @@ class LightgbmLRClassifier(BaseEstimator):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
-        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # return gbdt_feature_matrix
+        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
+        for i in range(0, len(pred_leaves)):
+            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
+            gbdt_feature_matrix[i][temp] += 1
+
+        print(
+        "pred_leaves:{0},gbdt_feature_matrix:{1},num_leaves:{2}".format(pred_leaves.shape, gbdt_feature_matrix.shape,
+                                                                        num_leaves))
         return gbdt_feature_matrix
 
     def gen_gbdt_lr_features(self, origin_features, pred_leaves, num_leaves=None):

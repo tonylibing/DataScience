@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from scipy.sparse import csr_matrix
 
+
 class XgboostLRClassifier(BaseEstimator):
     def __init__(self,combine_feature = True,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
@@ -54,7 +55,15 @@ class XgboostLRClassifier(BaseEstimator):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
-        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # return gbdt_feature_matrix
+        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
+        for i in range(0, len(pred_leaves)):
+            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
+            gbdt_feature_matrix[i][temp] += 1
+
+        print("pred_leaves:{0},gbdt_feature_matrix:{1},num_leaves:{2}".format(pred_leaves.shape,gbdt_feature_matrix.shape,num_leaves))
+
         return gbdt_feature_matrix
 
     def gen_gbdt_lr_features(self, origin_features, pred_leaves, num_leaves=None):
@@ -185,7 +194,16 @@ class LightgbmLRClassifier(BaseEstimator):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
-        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # return gbdt_feature_matrix
+        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
+        for i in range(0, len(pred_leaves)):
+            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
+            gbdt_feature_matrix[i][temp] += 1
+
+        print(
+        "pred_leaves:{0},gbdt_feature_matrix:{1},num_leaves:{2}".format(pred_leaves.shape, gbdt_feature_matrix.shape,
+                                                                        num_leaves))
         return gbdt_feature_matrix
 
     def gen_gbdt_lr_features(self, origin_features, pred_leaves, num_leaves=None):
