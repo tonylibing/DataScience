@@ -6,67 +6,81 @@ from sklearn.base import BaseEstimator
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
-
+from scipy.sparse import csr_matrix
 
 class XgboostLRClassifier(BaseEstimator):
-    def __init__(self, combine_feature = True, n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3, subsample=0.7,
-                 colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1, reg_alpha=1e-05,
-                 reg_lambda=1, seed=27, lr_penalty='l1', lr_c=1.0, lr_random_state=42):
+    def __init__(self,combine_feature = True,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
-        # gbdt model parameters
-        self.n_estimators = n_estimators
-        self.learning_rate = learning_rate
-        self.max_depth = max_depth
-        self.min_child_weight = min_child_weight
-        self.gamma = gamma
-        self.subsample = subsample
-        self.colsample_bytree = colsample_bytree
-        self.objective = objective
-        self.nthread = nthread
-        self.scale_pos_weight = scale_pos_weight
-        self.reg_alpha = reg_alpha
-        self.reg_lambda = reg_lambda
-        self.seed = seed
+        #gbdt model parameters
+        self.n_estimators=n_estimators
+        self.learning_rate=learning_rate
+        self.max_depth=max_depth
+        self.min_child_weight=min_child_weight
+        self.gamma=gamma
+        self.subsample=subsample
+        self.colsample_bytree=colsample_bytree
+        self.objective=objective
+        self.nthread=nthread
+        self.scale_pos_weight=scale_pos_weight
+        self.reg_alpha=reg_alpha
+        self.reg_lambda=reg_lambda
+        self.seed=seed
         print("init gbdt model:{0}".format(n_estimators))
         self.gbdt_model = xgb.XGBClassifier(
-            learning_rate=self.learning_rate,
-            n_estimators=self.n_estimators,
-            max_depth=self.max_depth,
-            min_child_weight=self.min_child_weight,
-            gamma=self.gamma,
-            subsample=self.subsample,
-            colsample_bytree=self.colsample_bytree,
-            objective=self.objective,
-            nthread=self.nthread,
-            scale_pos_weight=self.scale_pos_weight,
-            reg_alpha=self.reg_alpha,
-            reg_lambda=self.reg_lambda,
-            seed=self.seed)
-        # lr model parameters
+               learning_rate =self.learning_rate,
+               n_estimators=self.n_estimators,
+               max_depth=self.max_depth,
+               min_child_weight=self.min_child_weight,
+               gamma=self.gamma,
+               subsample=self.subsample,
+               colsample_bytree=self.colsample_bytree,
+               objective= self.objective,
+               nthread=self.nthread,
+               scale_pos_weight=self.scale_pos_weight,
+               reg_alpha=self.reg_alpha,
+               reg_lambda=self.reg_lambda,
+               seed=self.seed)
+        #lr model parameters
         self.lr_penalty = lr_penalty
         self.lr_c = lr_c
         self.lr_random_state = lr_random_state
         print("init lr model")
-        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',
-                                           random_state=lr_random_state)
-        # numerical feature binner
+        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4,solver='liblinear',random_state=lr_random_state)
+        #numerical feature binner
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
 
-    def gen_gbdt_features(self, pred_leaves, num_leaves=None):
+    def gen_gbdt_features(self,pred_leaves,num_leaves=None):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
         gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        return gbdt_feature_matrix.todense()
+        return gbdt_feature_matrix
 
     def gen_gbdt_lr_features(self, origin_features, pred_leaves, num_leaves=None):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
-        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        print("orginfeatures:{0},predleaves:{1}".format(origin_features.shape, gbdt_feature_matrix.shape))
-        gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix.todense()), axis=1)
+        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # print("onehotencoder active_features:".format(self.one_hot_encoder.active_features_))
+
+        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
+        for i in range(0, len(pred_leaves)):
+            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
+            gbdt_feature_matrix[i][temp] += 1
+
+        print("orgin_features:{0},pred_leaves:{1},gbdt_feature_matrix:{2},num_leaves:{3}".format(origin_features.shape,
+                                                                                                 pred_leaves.shape,
+                                                                                                 gbdt_feature_matrix.shape,
+                                                                                                 num_leaves))
+        # print("orgin_features:{0},pred_leaves:{1}".format(type(origin_features),type(gbdt_feature_matrix)))
+        if isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, csr_matrix):
+            gbdt_lr_feature_matrix = sparse.hstack((origin_features, gbdt_feature_matrix), format='csr')
+            # gbdt_lr_feature_matrix = np.concatenate((origin_features,gbdt_feature_matrix),axis=1)
+        elif isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, np.ndarray):
+            gbdt_lr_feature_matrix = sparse.hstack((origin_features, csr_matrix(gbdt_feature_matrix)), format='csr')
+        elif isinstance(origin_features, np.ndarray) and isinstance(gbdt_feature_matrix, np.ndarray):
+            gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix), axis=1)
         return gbdt_lr_feature_matrix
 
     def fit_model_split(self, X_train, y_train, X_test, y_test):
@@ -121,11 +135,10 @@ class XgboostLRClassifier(BaseEstimator):
         test1 = self.transform(X)
         return self.lr_model.predict_proba(test1)
 
-
 class LightgbmLRClassifier(BaseEstimator):
     def __init__(self, combine_feature = True,n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3,
                  subsample=0.7, colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1,
-                 reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l1', lr_c=1.0, lr_random_state=42):
+                 reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
         # gbdt model parameters
         self.n_estimators = n_estimators
@@ -179,9 +192,26 @@ class LightgbmLRClassifier(BaseEstimator):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
-        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        print("orginfeatures:{0},predleaves:{1}".format(origin_features.shape, gbdt_feature_matrix.shape))
-        gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix.todense()), axis=1)
+        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # print("onehotencoder active_features:".format(self.one_hot_encoder.active_features_))
+
+        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
+        for i in range(0, len(pred_leaves)):
+            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
+            gbdt_feature_matrix[i][temp] += 1
+
+        print("orgin_features:{0},pred_leaves:{1},gbdt_feature_matrix:{2},num_leaves:{3}".format(origin_features.shape,
+                                                                                                 pred_leaves.shape,
+                                                                                                 gbdt_feature_matrix.shape,
+                                                                                                 num_leaves))
+        # print("orgin_features:{0},pred_leaves:{1}".format(type(origin_features),type(gbdt_feature_matrix)))
+        if isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, csr_matrix):
+            gbdt_lr_feature_matrix = sparse.hstack((origin_features,gbdt_feature_matrix),format='csr')
+            # gbdt_lr_feature_matrix = np.concatenate((origin_features,gbdt_feature_matrix),axis=1)
+        elif isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, np.ndarray):
+            gbdt_lr_feature_matrix = sparse.hstack((origin_features,csr_matrix(gbdt_feature_matrix)),format='csr')
+        elif isinstance(origin_features, np.ndarray) and isinstance(gbdt_feature_matrix, np.ndarray):
+            gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix), axis=1)
         return gbdt_lr_feature_matrix
 
     def fit_model_split(self, X_train, y_train, X_test, y_test):

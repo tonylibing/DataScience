@@ -8,6 +8,7 @@ from collections import defaultdict
 
 import numpy as np
 import pandas as pd
+from scipy import sparse
 import scipy.stats.stats as stats
 import xgboost as xgb
 import lightgbm as lgb
@@ -42,7 +43,8 @@ def ColumnInfo(df, col):
         col_type = 'time'
     elif col.endswith('_id'):
         col_type = 'id'
-    elif col.startswith('dayOf') or col.startswith('hourOf'):
+    elif col.startswith('dayOf') or col.startswith('hourOf') or ('category' in col) or ('level' in col) or (
+        'flag' in col):
         col_type = 'categorical'
     elif isinstance(uniq_vals[0], float):
         col_type = 'numerical'
@@ -135,6 +137,7 @@ class FeatureProcessor(BaseEstimator):
         print("=" * 60)
         for fp in self.feature_processors:
             print('col:{0},type:{1},params:{2}'.format(fp.col_name, fp.col_type, fp.params))
+        print("=" * 60)
 
     def fit(self, df):
         self.feature_offset = {}
@@ -148,6 +151,7 @@ class FeatureProcessor(BaseEstimator):
 
         print("=" * 60)
         print("feature_offset:{0}".format(self.feature_offset))
+        print("=" * 60)
         return self
 
     def transform(self, df):
@@ -918,7 +922,7 @@ class ReduceVIF(BaseEstimator, TransformerMixin):
 
 
 class XgboostLRClassifier(BaseEstimator):
-    def __init__(self, combine_feature=False, n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1,
+    def __init__(self, combine_feature=True, n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1,
                  gamma=0.3, subsample=0.7, colsample_bytree=0.7, objective='binary:logistic', nthread=-1,
                  scale_pos_weight=1, reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0,
                  lr_random_state=42):
@@ -974,9 +978,26 @@ class XgboostLRClassifier(BaseEstimator):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
-        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        print("orgin_features:{0},pred_leaves:{1}".format(origin_features.shape, gbdt_feature_matrix.shape))
-        gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix.todense()), axis=1)
+        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # print("onehotencoder active_features:".format(self.one_hot_encoder.active_features_))
+
+        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
+        for i in range(0, len(pred_leaves)):
+            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
+            gbdt_feature_matrix[i][temp] += 1
+
+        print("orgin_features:{0},pred_leaves:{1},gbdt_feature_matrix:{2},num_leaves:{3}".format(origin_features.shape,
+                                                                                                 pred_leaves.shape,
+                                                                                                 gbdt_feature_matrix.shape,
+                                                                                                 num_leaves))
+        # print("orgin_features:{0},pred_leaves:{1}".format(type(origin_features),type(gbdt_feature_matrix)))
+        if isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, csr_matrix):
+            gbdt_lr_feature_matrix = sparse.hstack((origin_features, gbdt_feature_matrix), format='csr')
+            # gbdt_lr_feature_matrix = np.concatenate((origin_features,gbdt_feature_matrix),axis=1)
+        elif isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, np.ndarray):
+            gbdt_lr_feature_matrix = sparse.hstack((origin_features, csr_matrix(gbdt_feature_matrix)), format='csr')
+        elif isinstance(origin_features, np.ndarray) and isinstance(gbdt_feature_matrix, np.ndarray):
+            gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix), axis=1)
         return gbdt_lr_feature_matrix
 
     def fit_model_split(self, X_train, y_train, X_test, y_test):
@@ -1101,9 +1122,26 @@ class LightgbmLRClassifier(BaseEstimator):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
 
-        gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        print("orginfeatures:{0},predleaves:{1}".format(origin_features.shape, gbdt_feature_matrix.shape))
-        gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix.todense()), axis=1)
+        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
+        # print("onehotencoder active_features:".format(self.one_hot_encoder.active_features_))
+
+        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
+        for i in range(0, len(pred_leaves)):
+            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
+            gbdt_feature_matrix[i][temp] += 1
+
+        print("orgin_features:{0},pred_leaves:{1},gbdt_feature_matrix:{2},num_leaves:{3}".format(origin_features.shape,
+                                                                                                 pred_leaves.shape,
+                                                                                                 gbdt_feature_matrix.shape,
+                                                                                                 num_leaves))
+        # print("orgin_features:{0},pred_leaves:{1}".format(type(origin_features),type(gbdt_feature_matrix)))
+        if isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, csr_matrix):
+            gbdt_lr_feature_matrix = sparse.hstack((origin_features, gbdt_feature_matrix), format='csr')
+            # gbdt_lr_feature_matrix = np.concatenate((origin_features,gbdt_feature_matrix),axis=1)
+        elif isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, np.ndarray):
+            gbdt_lr_feature_matrix = sparse.hstack((origin_features, csr_matrix(gbdt_feature_matrix)), format='csr')
+        elif isinstance(origin_features, np.ndarray) and isinstance(gbdt_feature_matrix, np.ndarray):
+            gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix), axis=1)
         return gbdt_lr_feature_matrix
 
     def fit_model_split(self, X_train, y_train, X_test, y_test):
