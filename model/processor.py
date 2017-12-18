@@ -3,6 +3,7 @@ import json
 import numbers
 import random
 import time
+import operator
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -18,7 +19,8 @@ from sklearn import metrics
 from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 from sklearn.feature_selection import SelectFromModel
-from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -94,12 +96,15 @@ class FeatureProcessor(BaseEstimator):
     7. to sparse feature matrix or dense
     """
 
-    def __init__(self, df, feature_processors=None, parallel=False):
+    def __init__(self, df, y,feature_processors=None, parallel=False):
         self.df = df
         self.column_summray = ColumnSummary(self.df)
         self.column_type = self.column_summray.set_index('col_name')['ColumnType'].to_dict()
         self.feature_matrix = None
         self.feature_processors = []
+        self.variance_selector = VarianceSelector()
+        # self.chi2 = chi2()
+        self.feature_names = {}
         if feature_processors:
             self.feature_processors = feature_processors
         else:
@@ -129,10 +134,22 @@ class FeatureProcessor(BaseEstimator):
                         fp = CategoricalFeatureTransformer(col, col_type, {})
                         self.feature_processors.append(fp)
 
+        df_cat = self.df[categorical_cols]
+        df_numerical = self.variance_selector.fit_transform(self.df[numerical_cols])
+        df_numerical = SelectKBest(chi2, k=2).fit_transform(df_numerical,y)
+        self.df=pd.concat([df_cat,df_numerical],axis=1)
+        feature_processors = []
+        for fp in self.feature_processors:
+            if fp.col_name in self.df.columns.values:
+                feature_processors.append(fp)
+            else:
+                pass
+        self.feature_processors = feature_processors
         print("="*60)
         for fp in self.feature_processors:
             print('col:{0},type:{1},params:{2}'.format(fp.col_name, fp.col_type, fp.params))
         print("="*60)
+
 
     def fit(self, df):
         self.feature_offset = {}
@@ -160,15 +177,16 @@ class FeatureProcessor(BaseEstimator):
             for k, vv in enumerate(v):
                 fp = self.feature_processors[k]
                 if 'categorical'==fp.col_type:
-                    #print("vv:{0},col_name:{1},type:{2}".format(vv, fp.col_name, fp.col_type))
                     if pd.isnull(vv) == False:
                         data.append(1.0)
                         row_idx.append(i)
                         col_idx.append(int(vv) + self.feature_offset[fp.col_name])
+                        self.feature_names["{0}={1}".format(fp.col_name,fp.id2feature[int(vv)])]=int(vv) + self.feature_offset[fp.col_name]
                 else:
                     data.append(vv)
                     row_idx.append(i)
                     col_idx.append(self.feature_offset[fp.col_name])
+                    self.feature_names[fp.col_name]=self.feature_offset[fp.col_name]
         data.append(0.0)
         row_idx.append(len(df_tmp) - 1)
         col_idx.append(self.length - 1)
@@ -187,7 +205,11 @@ class FeatureProcessor(BaseEstimator):
         pass
 
     def __str__(self):
-        return "\n".join(self.feature_processors)
+        ps = ['col:{0},type:{1},params:{2}'.format(fp.col_name, fp.col_type, fp.params) for fp in self.feature_processors]
+        processors = "\n".join(ps)
+        sorted_x = sorted(self.feature_names.items(), key=operator.itemgetter(1))
+        info = processors+"\n"+json.dumps(sorted_x)
+        return info
 
 class ColumnExtractor(TransformerMixin):
     def __init__(self, columns):
@@ -312,7 +334,6 @@ class CategoricalFeatureTransformer(TransformerMixin):
             idx += 1
 
         self.dimension = idx
-        # print("id2feature:{0}".format(self.id2feature))
         print("col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name,self.col_type,self.feature2id))
         return self
 
@@ -951,6 +972,9 @@ class XgboostLRClassifier(BaseEstimator):
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
 
+    def feature_importance(self):
+        return self.gbdt_model.feature_importances_
+
     def gen_gbdt_features(self,pred_leaves,num_leaves=None):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
@@ -996,6 +1020,10 @@ class XgboostLRClassifier(BaseEstimator):
         ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
         X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.2, random_state=999,stratify=y_train)
         self.gbdt_model.fit(X_train_1, y_train_1)
+        # print("feature importance:".format(self.gbdt_model.feature_importances_))
+        print("feature importance:{0}".format(self.gbdt_model.feature_importances_.shape))
+        print(self.gbdt_model.feature_importances_)
+        # print("feature importance:".format(self.gbdt_model.booster().get_fscore()))
         y_pre = self.gbdt_model.predict(X_train_2)
         y_pro = self.gbdt_model.predict_proba(X_train_2)[:, 1]
         print("pred_leaf=T AUC Score :{0}".format(metrics.roc_auc_score(y_train_2, y_pro)))
@@ -1009,6 +1037,9 @@ class XgboostLRClassifier(BaseEstimator):
 
     def fit_model(self, X_train, y_train, X_test, y_test):
         self.gbdt_model.fit(X_train, y_train)
+        print("feature importance:{0}".format(self.gbdt_model.feature_importances_.shape))
+        print(self.gbdt_model.feature_importances_)
+        # print("feature importance:".format(self.gbdt_model.booster().get_fscore()))
         y_pre = self.gbdt_model.predict(X_test)
         y_pro = self.gbdt_model.predict_proba(X_test)[:, 1]
         print("pred_leaf=T  AUC Score: {0}".format(metrics.roc_auc_score(y_test, y_pro)))
@@ -1090,6 +1121,9 @@ class LightgbmLRClassifier(BaseEstimator):
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
 
+    def feature_importance(self):
+        return self.gbdt_model.feature_importances_
+
     def gen_gbdt_features(self, pred_leaves, num_leaves=None):
         if num_leaves is None:
             num_leaves = np.amax(pred_leaves)
@@ -1136,6 +1170,8 @@ class LightgbmLRClassifier(BaseEstimator):
         ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
         X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.2, random_state=999,stratify=y_train)
         self.gbdt_model.fit(X_train_1, y_train_1)
+        print("feature importance:{0}".format(self.gbdt_model.feature_importances_.shape))
+        print(self.gbdt_model.feature_importances_)
         y_pre = self.gbdt_model.predict(X_train_2)
         y_pro = self.gbdt_model.predict_proba(X_train_2)[:, 1]
         print("pred_leaf=T AUC Score :{0}".format(metrics.roc_auc_score(y_train_2, y_pro)))
@@ -1149,6 +1185,8 @@ class LightgbmLRClassifier(BaseEstimator):
 
     def fit_model(self, X_train, y_train, X_test, y_test):
         self.gbdt_model.fit(X_train, y_train)
+        print("feature importance:{0}".format(self.gbdt_model.feature_importances_.shape))
+        print(self.gbdt_model.feature_importances_)
         y_pre = self.gbdt_model.predict(X_test)
         y_pro = self.gbdt_model.predict_proba(X_test)[:, 1]
         print("pred_leaf=T  AUC Score: {0}".format(metrics.roc_auc_score(y_test, y_pro)))

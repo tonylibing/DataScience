@@ -17,7 +17,9 @@ import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
 
+# data=pd.read_csv("~/dataset/rec_data_train_save.csv",sep=',')
 data=pd.read_csv("~/dataset/rec_data_train_3w.csv",sep=',')
+# data=pd.read_csv("E:/dataset/rec_data_train_3w.csv",sep=',')
 #data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
 print(data.columns.values)
 y=data['invest']
@@ -27,6 +29,7 @@ X=data
 #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999,stratify=y)
 
 n_subsets = int(sum(y==0)/sum(y==1))
+# n_subsets = (int(sum(y==0)/sum(y==1)))/10
 # ee = EasyEnsemble(n_subsets=n_subsets)
 # sample_X, sample_y = ee.fit_sample(X, y)
 
@@ -46,6 +49,13 @@ y_new = pd.concat([y_n_retain,y_y],axis=0)
 X=X_new
 bfp = FeatureProcessor(X)
 feature_matrix = bfp.fit_transform(X)
+print(str(bfp))
+
+idx2featurename = dict((y,x) for x,y in bfp.feature_names.items())
+
+
+
+print("feature_matrix shape:{0}".format(feature_matrix.shape))
 
 gbm = xgb.XGBClassifier(max_depth=3, n_estimators=50, learning_rate=0.3,
                               subsample=0.8, colsample_bytree=0.7,
@@ -91,6 +101,12 @@ print("Xgboost+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_p
 print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
 
+fi = gbdtlr.feature_importance()
+for i,v in enumerate(fi):
+    print("{0}:{1}".format(idx2featurename[i],v))
+
+
+
 lgbmlr = LightgbmLRClassifier()
 lgbmlr.fit(X_train,y_train)
 y_pre= lgbmlr.predict(X_test)
@@ -100,6 +116,10 @@ print("Lightgbm+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_
 print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
 
+fi = lgbmlr.feature_importance()
+for i,v in enumerate(fi):
+    print("{0}:{1}".format(idx2featurename[i],v))
+
 gbdtlr = XgboostLRClassifier(combine_feature=False)
 gbdtlr.fit(X_train,y_train)
 y_pre= gbdtlr.predict(X_test)
@@ -108,6 +128,10 @@ print("="*60)
 print("Xgboost+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
 print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
+fi = gbdtlr.feature_importance()
+for i,v in enumerate(fi):
+    print("{0}:{1}".format(idx2featurename[i],v))
+
 
 lgbmlr = LightgbmLRClassifier(combine_feature=False)
 lgbmlr.fit(X_train,y_train)
@@ -117,3 +141,6 @@ print("="*60)
 print("Lightgbm+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
 print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
+fi = lgbmlr.feature_importance()
+for i,v in enumerate(fi):
+    print("{0}:{1}".format(idx2featurename[i],v))
