@@ -19,6 +19,7 @@ import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
 
 if os.path.exists("~/dataset/rec_data_train_sampled.csv"):
+    print("load saved training data")
     data = pd.read_csv("~/dataset/rec_data_train_sampled.csv", sep=',')
     y = data['invest']
     X = data.drop(['rd', 'click', 'invest', 'invest_amount', 'mobile_no_attribution'], axis=1)
@@ -30,6 +31,8 @@ else:
     print(data.columns.values)
     y=data['invest']
     data[data['total_balance']<0]=0
+    data[data['fst_invest_days']<0]=0
+    data[data['highest_asset_amt']<0]=0
     X = data.drop(['rd','click','invest','invest_amount','mobile_no_attribution'],axis=1)
     #X=data[[col for col in data.columns if col not in ['invest','invest_amount']]]
     #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999,stratify=y)
@@ -51,7 +54,7 @@ else:
     X_new = pd.concat([X_n_retain,X_y],axis=0)
     y_new = pd.concat([y_n_retain,y_y],axis=0)
 
-    sf = data[X_new.index]
+    sf = pd.concat([X_new,pd.DataFrame(y_new)],axis=1)
     sf.to_csv("~/dataset/rec_data_train_sampled.csv",index=False,header=True)
     #no weight
     X=X_new
@@ -111,11 +114,10 @@ print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_
 print("="*60)
 
 fi = gbdtlr.feature_importance()
-fi = zip(fi,range(len(fi)))
-fi = sorted(fi, key=lambda tup: tup[1])
-for i,v in enumerate(fi):
-    print("{0}:{1}".format(idx2featurename[i],v))
-
+fi = list(zip(list(range(len(fi))),fi))
+fi = sorted(fi, key=lambda tup: tup[1],reverse=True)
+for idx,importance in fi:
+    print("{0}:{1}".format(idx2featurename[idx],importance))
 
 
 lgbmlr = LightgbmLRClassifier()
@@ -128,10 +130,10 @@ print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y
 print("="*60)
 
 fi = lgbmlr.feature_importance()
-fi = zip(fi,range(len(fi)))
-fi = sorted(fi, key=lambda tup: tup[1])
-for i,v in enumerate(fi):
-    print("{0}:{1}".format(idx2featurename[i],v))
+fi = list(zip(list(range(len(fi))),fi))
+fi = sorted(fi, key=lambda tup: tup[1],reverse=True)
+for idx,importance in fi:
+    print("{0}:{1}".format(idx2featurename[idx],importance))
 
 gbdtlr = XgboostLRClassifier(combine_feature=False)
 gbdtlr.fit(X_train,y_train)
@@ -142,10 +144,10 @@ print("Xgboost+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_p
 print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
 fi = gbdtlr.feature_importance()
-fi= sorted(fi,reverse=True)
-for i,v in enumerate(fi):
-    print("{0}:{1}".format(idx2featurename[i],v))
-
+fi = list(zip(list(range(len(fi))),fi))
+fi = sorted(fi, key=lambda tup: tup[1],reverse=True)
+for idx,importance in fi:
+    print("{0}:{1}".format(idx2featurename[idx],importance))
 
 lgbmlr = LightgbmLRClassifier(combine_feature=False)
 lgbmlr.fit(X_train,y_train)
@@ -156,7 +158,7 @@ print("Lightgbm+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_
 print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
 fi = lgbmlr.feature_importance()
-fi = zip(fi,range(len(fi)))
-fi = sorted(fi, key=lambda tup: tup[1])
-for i,v in enumerate(fi):
-    print("{0}:{1}".format(idx2featurename[i],v))
+fi = list(zip(list(range(len(fi))),fi))
+fi = sorted(fi, key=lambda tup: tup[1],reverse=True)
+for idx,importance in fi:
+    print("{0}:{1}".format(idx2featurename[idx],importance))
