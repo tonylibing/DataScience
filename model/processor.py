@@ -44,7 +44,7 @@ def ColumnInfo(df, col):
         col_type = 'time'
     elif col.endswith('_id'):
         col_type = 'id'
-    elif col.startswith('dayOf') or col.startswith('hourOf') or ('category' in col) or ('level' in col) or ('flag' in col):
+    elif col.startswith('dayOf') or col.startswith('hourOf') or ('category' in col) or ('level' in col) or ('flag' in col) or ('version' in col):
         col_type = 'categorical'
     elif isinstance(uniq_vals[0], float):
         col_type = 'numerical'
@@ -60,11 +60,11 @@ def ColumnInfo(df, col):
         missing_vals = df[col].map(lambda x: int(x != x))
         missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
 
-    return col, col_type, missing_pct
+    return col, col_type, df[col].dtype,missing_pct
 
 def ColumnSummary(df, label_col='label', id_cols=None):
     column_info = pd.DataFrame([(ColumnInfo(df, col)) for col in tqdm(df.columns.values, desc='Columns Info')])
-    column_info.columns = ['col_name', 'ColumnType', 'missing_pct']
+    column_info.columns = ['col_name', 'ColumnType','dtype', 'missing_pct']
     summary = df.describe(include='all').transpose()
     summary = summary.reset_index()
     # print(summary.columns)
@@ -102,9 +102,14 @@ class FeatureProcessor(BaseEstimator):
         self.column_type = self.column_summray.set_index('col_name')['ColumnType'].to_dict()
         self.feature_matrix = None
         self.feature_processors = []
-        self.variance_selector = VarianceSelector()
-        # self.chi2 = chi2()
+        self.variance_selector = VarianceThreshold(threshold=.001)
         self.feature_names = {}
+        #drop missing too much columns
+        drop_cols = self.column_summray[self.column_summray['missing_pct']>0.95]['col_name']
+        if len(drop_cols)>0:
+            print("drop missing too much columns:{0}".format(drop_cols))
+            self.df.drop(drop_cols,axis=0,inplace=True)
+
         if feature_processors:
             self.feature_processors = feature_processors
         else:
@@ -134,16 +139,37 @@ class FeatureProcessor(BaseEstimator):
                         fp = CategoricalFeatureTransformer(col, col_type, {})
                         self.feature_processors.append(fp)
 
+        #feature selection
+        print(numerical_cols)
+        print(categorical_cols)
         df_cat = self.df[categorical_cols]
-        df_numerical = self.variance_selector.fit_transform(self.df[numerical_cols])
-        df_numerical = SelectKBest(chi2, k=2).fit_transform(df_numerical,y)
+        # self.df[numerical_cols] =
+        # self.df[numerical_cols]=self.df[numerical_cols].astype(np.float64)
+        df_nonna = self.df[numerical_cols].dropna()
+        y_tmp = y[df_nonna.index]
+        # print(df_nonna.index.values)
+        # print(ColumnSummary(df_nonna))
+        df_numerical = self.variance_selector.fit_transform(df_nonna)
+        idxs_selected = self.variance_selector.get_support(indices=True)
+        print(type(idxs_selected))
+        print(idxs_selected)
+        print(df_nonna.columns[idxs_selected])
+        # print(df_numerical.index.values)
+        df2 = df_nonna[df_nonna.columns[idxs_selected]]
+        selector = SelectKBest(chi2, k=int(len(df2.columns)*0.9))
+        df_numerical = selector.fit_transform(df2,y_tmp)
+        idxs_selected = selector.get_support(indices=True)
+        print(df2.columns[idxs_selected])
+        df_numerical = pd.DataFrame(df_numerical, columns=df2.columns[idxs_selected])
         self.df=pd.concat([df_cat,df_numerical],axis=1)
+        #filter droped cols
         feature_processors = []
         for fp in self.feature_processors:
             if fp.col_name in self.df.columns.values:
                 feature_processors.append(fp)
             else:
                 pass
+
         self.feature_processors = feature_processors
         print("="*60)
         for fp in self.feature_processors:
@@ -161,9 +187,10 @@ class FeatureProcessor(BaseEstimator):
             self.feature_offset[fp.col_name] = self.length
             self.length += fp.dimension
 
-        print("="*60)
+        print("=" * 60)
         print("feature_offset:{0}".format(self.feature_offset))
-        print("="*60)
+        print("=" * 60)
+
         return self
 
     def transform(self, df):
@@ -287,13 +314,13 @@ class ContinuousFeatureTransformer(TransformerMixin):
         self.col_name = col_name
         self.col_type = col_type
         self.params = params
-        self.fillmethod = 'mean'
+        self.fillmethod = 'median'
         if 'fillmethod' in self.params:
             self.fillmethod = self.params['fillmethod']
 
     def fit(self, df):
         if self.fillmethod == 'value':
-            self.value = self.parameters['value']
+            self.value = self.params['value']
         elif self.fillmethod == 'mean':
             self.value = df[self.col_name].mean()
         elif self.fillmethod == 'median':
@@ -833,34 +860,6 @@ class FlattenJsonTransformer(TransformerMixin):
 
     def fit_transform(self, X,columns):
         return self.fit(X).transform(X,columns)
-
-class VarianceSelector(TransformerMixin):
-    def __init__(self):
-        self.sel = VarianceThreshold(threshold=.08)
-
-    def fit(self, X):
-        return self
-
-    def transform(self, X):
-        X_sel=self.sel.fit_transform(X)
-        return X_sel
-    
-    def fit_transform(self,X):
-        X_sel=self.sel.fit_transform(X)
-        return X_sel
-
-class Chi2KBestSelector(TransformerMixin):
-    def fit(self, X):
-        return self
-
-    def transform(self, X,y):
-        X_chi2 = SelectKBest(chi2, k=5).fit_transform(X, y)
-        return X_chi2
-    
-    def fit_transform(self,X,y):
-        X_chi2 = SelectKBest(chi2, k=5).fit_transform(X, y)
-        return X_chi2
-
 
 class L1KBestSelector(TransformerMixin):
     def __init__(self):

@@ -23,6 +23,7 @@ data=pd.read_csv("~/dataset/rec_data_train_3w.csv",sep=',')
 #data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
 print(data.columns.values)
 y=data['invest']
+data[data['total_balance']<0]=0
 data.drop(['rd','click','invest','invest_amount','mobile_no_attribution'],axis=1,inplace=True)
 #X=data[[col for col in data.columns if col not in ['invest','invest_amount']]]
 X=data
@@ -47,7 +48,8 @@ y_new = pd.concat([y_n_retain,y_y],axis=0)
 
 #no weight
 X=X_new
-bfp = FeatureProcessor(X)
+y=y_new
+bfp = FeatureProcessor(X,y)
 feature_matrix = bfp.fit_transform(X)
 print(str(bfp))
 
@@ -102,6 +104,7 @@ print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_
 print("="*60)
 
 fi = gbdtlr.feature_importance()
+fi= sorted(fi,reverse=True)
 for i,v in enumerate(fi):
     print("{0}:{1}".format(idx2featurename[i],v))
 
@@ -117,6 +120,7 @@ print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y
 print("="*60)
 
 fi = lgbmlr.feature_importance()
+fi= sorted(fi,reverse=True)
 for i,v in enumerate(fi):
     print("{0}:{1}".format(idx2featurename[i],v))
 
@@ -129,6 +133,7 @@ print("Xgboost+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_p
 print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
 fi = gbdtlr.feature_importance()
+fi= sorted(fi,reverse=True)
 for i,v in enumerate(fi):
     print("{0}:{1}".format(idx2featurename[i],v))
 
@@ -142,5 +147,6 @@ print("Lightgbm+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_
 print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
 print("="*60)
 fi = lgbmlr.feature_importance()
+fi= sorted(fi,reverse=True)
 for i,v in enumerate(fi):
     print("{0}:{1}".format(idx2featurename[i],v))
