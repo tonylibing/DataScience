@@ -24,6 +24,7 @@ from sklearn.feature_selection import chi2
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
@@ -103,6 +104,7 @@ class FeatureProcessor(BaseEstimator):
         self.feature_matrix = None
         self.feature_processors = []
         self.variance_selector = VarianceThreshold(threshold=.001)
+        self.scaler = StandardScaler()
         self.feature_names = {}
         #drop missing too much columns
         drop_cols = self.column_summray[self.column_summray['missing_pct']>0.95]['col_name']
@@ -148,7 +150,7 @@ class FeatureProcessor(BaseEstimator):
         df_nonna = self.df[numerical_cols].dropna()
         y_tmp = y[df_nonna.index]
         # print(df_nonna.index.values)
-        # print(ColumnSummary(df_nonna))
+        print(ColumnSummary(df_nonna))
         df_numerical = self.variance_selector.fit_transform(df_nonna)
         idxs_selected = self.variance_selector.get_support(indices=True)
         print(type(idxs_selected))
@@ -161,6 +163,9 @@ class FeatureProcessor(BaseEstimator):
         idxs_selected = selector.get_support(indices=True)
         print(df2.columns[idxs_selected])
         df_numerical = pd.DataFrame(df_numerical, columns=df2.columns[idxs_selected])
+        #StandardScaler
+        # self.scaler.fit(df_numerical)
+        # df_numerical = self.scaler.transform(df_numerical)
         self.df=pd.concat([df_cat,df_numerical],axis=1)
         #filter droped cols
         feature_processors = []
