@@ -2,7 +2,6 @@ import sys
 import os
 import argparse
 import processor
-from importlib import reload
 import argparse
 import os
 import sys
@@ -31,6 +30,17 @@ def main(_):
     mtyunArgs = parser.add_argument_group('美团云选项')
     mtyunArgs.add_argument('--data_dir', type=str, default='',
                            help='input data path')
+    mtyunArgs.add_argument('--model_dir', type=str, default='',
+                           help='output model path')
+    mtyunArgs.add_argument('--tf_fs', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--tf_prefix', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--default_fs', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--worker_num', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--num_gpus', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--num_ps', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--num_worker', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--tensorboard_dir', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--tb_dir', type=str, default='local_tensorbord_dir_0', help='output model path')
     FLAGS, _ = parser.parse_known_args()
     print('FLAGS')
     print(FLAGS)
