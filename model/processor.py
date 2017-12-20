@@ -71,7 +71,7 @@ def ColumnSummary(df, label_col='label', id_cols=None):
     # print(summary.columns)
     all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
     all.drop('col_name', axis=1)
-    all.to_csv('colummn_summary.csv',index=False,header=True)
+    # all.to_csv('colummn_summary.csv',index=False,header=True)
     return all
 
 class BaseFeatureProcessor:
