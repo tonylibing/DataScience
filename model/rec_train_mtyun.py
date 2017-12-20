@@ -50,15 +50,15 @@ def main(_):
     if sampling_flag:
         if tf.gfile.Exists(os.path.join(args.data_dir,"rec_data_train_sampled.csv")):
             print("load saved sampling training data")
-            with tf.gfile.FastGFile(os.path.join(args.data_dir,"rec_data_train_sampled.csv", 'r')) as gf:
-                data = pd.read_csv(gf, sep=',')
+            with tf.gfile.FastGFile(os.path.join(args.data_dir,"rec_data_train_sampled.csv")) as gf:
+                data = pd.read_csv(gf, sep=',',encoding='utf-8')
             print(data.groupby("invest").size())
             print(data.columns)
             y = data['invest']
             X = data.drop(['invest'], axis=1)
         else:
-            with tf.gfile.FastGFile(os.path.join(args.data_dir, "rec_data_train_save.csv", 'r')) as gf:
-                data=pd.read_csv(gf,sep=',')
+            with tf.gfile.FastGFile(os.path.join(args.data_dir, "rec_data_train_save.csv")) as gf:
+                data=pd.read_csv(gf,sep=',',encoding='utf-8')
             # data=pd.read_csv("~/dataset/rec_data_train_3w.csv",sep=',')
             # data=pd.read_csv("E:/dataset/rec_data_train_3w.csv",sep=',')
             #data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
@@ -91,14 +91,14 @@ def main(_):
 
             sf = pd.concat([X_new,pd.DataFrame(y_new)],axis=1)
             with tf.gfile.FastGFile(os.path.join(args.data_dir, "rec_data_train_sampled.csv", 'w')) as gf:
-                sf.to_csv(gf,index=False,header=True)
+                sf.to_csv(gf,index=False,header=True,encoding='utf-8')
             #no weight
             X=X_new
             y=y_new
     else:
         print("load saved training data")
-        with tf.gfile.FastGFile(os.path.join(args.data_dir, "rec_data_train_save.csv", 'r')) as gf:
-            data = pd.read_csv(gf, sep=',')
+        with tf.gfile.FastGFile(os.path.join(args.data_dir, "rec_data_train_save.csv")) as gf:
+            data = pd.read_csv(gf, sep=',',encoding='utf-8')
         data[data['age'] < 0] = np.nan
         data[data['total_balance'] < 0] = 0
         data[data['fst_invest_days'] < 0] = 0

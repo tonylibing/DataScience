@@ -19,7 +19,7 @@ import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
 
-sampling_flag = False
+sampling_flag = True
 if sampling_flag:
     if os.path.exists("/home/tanglek/dataset/rec_data_train_sampled.csv"):
         print("load saved sampling training data")
