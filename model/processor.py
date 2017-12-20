@@ -1113,7 +1113,7 @@ class LightgbmLRClassifier(BaseEstimator):
         #     reg_alpha=self.reg_alpha,
         #     reg_lambda=self.reg_lambda,
         #     seed=self.seed)
-        self.gbdt_model = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
+        self.gbdt_model = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30,scale_pos_weight=scale_pos_weight, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
         # lr model parameters
         self.lr_penalty = lr_penalty
         self.lr_c = lr_c
