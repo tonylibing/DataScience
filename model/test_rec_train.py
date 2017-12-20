@@ -13,16 +13,17 @@ from processor import *
 from imblearn.ensemble import EasyEnsemble
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import train_test_split
-from sklearn import metrics
+from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score,accuracy_score
 import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
 
-if os.path.exists("~/dataset/rec_data_train_sampled.csv"):
+if os.path.exists("/home/tanglek/dataset/rec_data_train_sampled.csv"):
     print("load saved training data")
     data = pd.read_csv("~/dataset/rec_data_train_sampled.csv", sep=',')
+    print(data.columns)
     y = data['invest']
-    X = data.drop(['rd', 'click', 'invest', 'invest_amount', 'mobile_no_attribution'], axis=1)
+    X = data.drop(['invest'], axis=1)
 else:
     data=pd.read_csv("~/dataset/rec_data_train_save.csv",sep=',')
     # data=pd.read_csv("~/dataset/rec_data_train_3w.csv",sep=',')
@@ -73,15 +74,17 @@ gbm = xgb.XGBClassifier(max_depth=3, n_estimators=50, learning_rate=0.3,
                               subsample=0.8, colsample_bytree=0.7,
                               objective="binary:logistic", seed=999)
 
-X_train, X_test, y_train, y_test = train_test_split(feature_matrix, y, test_size=0.2, random_state=999,stratify=y_new)
+X_train, X_test, y_train, y_test = train_test_split(feature_matrix, y, test_size=0.2, random_state=999,stratify=y)
 
 lr = LogisticRegression(C=1.0, penalty='l2', tol=1e-4,solver='liblinear',random_state=42)
 lr.fit(X_train,y_train)
 y_pre= lr.predict(X_test)
 y_pro= lr.predict_proba(X_test)[:,1]
 print("="*60)
-print("LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-print("LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
+print("LR  Test Accuracy : {0}".format(accuracy_score(y_test, y_pre)))
+print("LR  Test Accuracy : {0}".format(recall_score(y_test, y_pre)))
+print("LR  Test Accuracy : {0}".format(confusion_matrix(y_test, y_pre)))
 print("="*60)
 
 gbm = xgb.XGBClassifier(n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27)
@@ -91,8 +94,10 @@ y_pre= gbm.predict(X_test)
 # print(y_pre_leaf.shape)
 y_pro= gbm.predict_proba(X_test)[:,1]
 print("="*60)
-print("Xgboost model Test AUC Score: {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-print("Xgboost model Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("Xgboost model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
+print("Xgboost model Test Accuracy : {0}".format(accuracy_score(y_test, y_pre)))
+print("Xgboost model Test Accuracy : {0}".format(recall_score(y_test, y_pre)))
+print("Xgboost model Test Accuracy : {0}".format(confusion_matrix(y_test, y_pre)))
 print("="*60)
 
 lgbm = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
@@ -100,8 +105,10 @@ lgbm.fit(X_train,y_train)
 y_pre= lgbm.predict(X_test)
 y_pro= lgbm.predict_proba(X_test)[:,1]
 print("="*60)
-print("lightgbm model Test AUC Score: {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-print("lightgbm model Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("lightgbm model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
+print("lightgbm model Test Accuracy : {0}".format(accuracy_score(y_test, y_pre)))
+print("lightgbm model Test Accuracy : {0}".format(recall_score(y_test, y_pre)))
+print("lightgbm model Test Accuracy : {0}".format(confusion_matrix(y_test, y_pre)))
 print("="*60)
 
 gbdtlr = XgboostLRClassifier()
@@ -109,8 +116,10 @@ gbdtlr.fit(X_train,y_train)
 y_pre= gbdtlr.predict(X_test)
 y_pro= gbdtlr.predict_proba(X_test)[:,1]
 print("="*60)
-print("Xgboost+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("Xgboost+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
+print("Xgboost+LR  Test Accuracy : {0}".format(accuracy_score(y_test, y_pre)))
+print("Xgboost+LR  Test Accuracy : {0}".format(recall_score(y_test, y_pre)))
+print("Xgboost+LR  Test Accuracy : {0}".format(confusion_matrix(y_test, y_pre)))
 print("="*60)
 
 fi = gbdtlr.feature_importance()
@@ -125,8 +134,10 @@ lgbmlr.fit(X_train,y_train)
 y_pre= lgbmlr.predict(X_test)
 y_pro= lgbmlr.predict_proba(X_test)[:,1]
 print("="*60)
-print("Lightgbm+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("Lightgbm+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
+print("Lightgbm+LR  Test Accuracy : {0}".format(accuracy_score(y_test, y_pre)))
+print("Lightgbm+LR  Test Accuracy : {0}".format(recall_score(y_test, y_pre)))
+print("Lightgbm+LR  Test Accuracy : {0}".format(confusion_matrix(y_test, y_pre)))
 print("="*60)
 
 fi = lgbmlr.feature_importance()
@@ -140,8 +151,10 @@ gbdtlr.fit(X_train,y_train)
 y_pre= gbdtlr.predict(X_test)
 y_pro= gbdtlr.predict_proba(X_test)[:,1]
 print("="*60)
-print("Xgboost+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-print("Xgboost+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("Xgboost+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
+print("Xgboost+LR  Test Accuracy : {0}".format(accuracy_score(y_test, y_pre)))
+print("Xgboost+LR  Test Accuracy : {0}".format(recall_score(y_test, y_pre)))
+print("Xgboost+LR  Test Accuracy : {0}".format(confusion_matrix(y_test, y_pre)))
 print("="*60)
 fi = gbdtlr.feature_importance()
 fi = list(zip(list(range(len(fi))),fi))
@@ -154,8 +167,10 @@ lgbmlr.fit(X_train,y_train)
 y_pre= lgbmlr.predict(X_test)
 y_pro= lgbmlr.predict_proba(X_test)[:,1]
 print("="*60)
-print("Lightgbm+LR Test AUC Score : {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-print("Lightgbm+LR  Test Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
+print("Lightgbm+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
+print("Lightgbm+LR  Test Accuracy : {0}".format(accuracy_score(y_test, y_pre)))
+print("Lightgbm+LR  Test Accuracy : {0}".format(recall_score(y_test, y_pre)))
+print("Lightgbm+LR  Test Accuracy : {0}".format(confusion_matrix(y_test, y_pre)))
 print("="*60)
 fi = lgbmlr.feature_importance()
 fi = list(zip(list(range(len(fi))),fi))
