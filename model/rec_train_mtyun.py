@@ -51,14 +51,14 @@ def main(_):
         if tf.gfile.Exists(os.path.join(args.data_dir,"rec_data_train_sampled.csv")):
             print("load saved sampling training data")
             with tf.gfile.FastGFile(os.path.join(args.data_dir,"rec_data_train_sampled.csv")) as gf:
-                data = pd.read_csv(gf, sep=',',encoding='utf-8')
+                data = pd.read_csv(gf, sep=',',encoding="ISO-8859-1")
             print(data.groupby("invest").size())
             print(data.columns)
             y = data['invest']
             X = data.drop(['invest'], axis=1)
         else:
             with tf.gfile.FastGFile(os.path.join(args.data_dir, "rec_data_train_save.csv")) as gf:
-                data=pd.read_csv(gf,sep=',',encoding='utf-8')
+                data=pd.read_csv(gf,sep=',',encoding="ISO-8859-1")
             # data=pd.read_csv("~/dataset/rec_data_train_3w.csv",sep=',')
             # data=pd.read_csv("E:/dataset/rec_data_train_3w.csv",sep=',')
             #data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
@@ -98,7 +98,7 @@ def main(_):
     else:
         print("load saved training data")
         with tf.gfile.FastGFile(os.path.join(args.data_dir, "rec_data_train_save.csv")) as gf:
-            data = pd.read_csv(gf, sep=',',encoding='utf-8')
+            data = pd.read_csv(gf, sep=',',encoding="ISO-8859-1")
         data[data['age'] < 0] = np.nan
         data[data['total_balance'] < 0] = 0
         data[data['fst_invest_days'] < 0] = 0
@@ -112,6 +112,7 @@ def main(_):
     print("scale_pos_weight:",scale_pos_weight)
     bfp = FeatureProcessor(X,y)
     feature_matrix = bfp.fit_transform(X)
+
     print(str(bfp))
 
     idx2featurename = dict((y,x) for x,y in bfp.feature_names.items())

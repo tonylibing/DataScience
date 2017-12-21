@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import datetime
 import json
 import numbers
@@ -106,6 +107,8 @@ class FeatureProcessor(BaseEstimator):
         self.variance_selector = VarianceThreshold(threshold=.001)
         self.scaler = StandardScaler()
         self.feature_names = {}
+        self.numerical_cols = []
+        self.categorical_cols = []
         #drop missing too much columns
         drop_cols = self.column_summray[self.column_summray['missing_pct']>0.95]['col_name']
         if len(drop_cols)>0:
@@ -117,40 +120,35 @@ class FeatureProcessor(BaseEstimator):
         else:
             print('generate default feature processors')
             if parallel:
-                numerical_cols = []
-                categorical_cols = []
                 for col, col_type in self.column_type.items():
                     if col_type == 'numerical':
-                        numerical_cols.append(col)
+                        self.numerical_cols.append(col)
                         fp = ContinuousFeatureTransformer(col, col_type, {})
                         self.feature_processors.append(fp)
                     elif col_type == 'categorical':
-                        categorical_cols.append(col)
+                        self.categorical_cols.append(col)
                         fp = CategoricalFeatureTransformer(col, col_type, {})
                         self.feature_processors.append(fp)
             else:
-                numerical_cols = []
-                categorical_cols = []
                 for col, col_type in self.column_type.items():
                     if col_type == 'numerical':
-                        numerical_cols.append(col)
+                        self.numerical_cols.append(col)
                         fp = ContinuousFeatureTransformer(col, col_type, {})
                         self.feature_processors.append(fp)
                     elif col_type == 'categorical':
-                        categorical_cols.append(col)
+                        self.categorical_cols.append(col)
                         fp = CategoricalFeatureTransformer(col, col_type, {})
                         self.feature_processors.append(fp)
 
         #feature selection
-        print(numerical_cols)
-        print(categorical_cols)
-        df_cat = self.df[categorical_cols]
+        print(self.numerical_cols)
+        print(self.categorical_cols)
+        df_cat = self.df[self.categorical_cols]
         # self.df[numerical_cols] =
         # self.df[numerical_cols]=self.df[numerical_cols].astype(np.float64)
-        df_nonna = self.df[numerical_cols].dropna()
+        df_nonna = self.df[self.numerical_cols].dropna()
         y_tmp = y[df_nonna.index]
         # print(df_nonna.index.values)
-        print(ColumnSummary(df_nonna))
         df_numerical = self.variance_selector.fit_transform(df_nonna)
         idxs_selected = self.variance_selector.get_support(indices=True)
         print(type(idxs_selected))
@@ -163,10 +161,10 @@ class FeatureProcessor(BaseEstimator):
         idxs_selected = selector.get_support(indices=True)
         print(df2.columns[idxs_selected])
         df_numerical = pd.DataFrame(df_numerical, columns=df2.columns[idxs_selected])
-        #StandardScaler
-        # self.scaler.fit(df_numerical)
-        # df_numerical = self.scaler.transform(df_numerical)
+        self.numerical_cols = df_numerical.columns
+
         self.df=pd.concat([df_cat,df_numerical],axis=1)
+        # print(ColumnSummary(self.df))
         #filter droped cols
         feature_processors = []
         for fp in self.feature_processors:
@@ -192,6 +190,12 @@ class FeatureProcessor(BaseEstimator):
             self.feature_offset[fp.col_name] = self.length
             self.length += fp.dimension
 
+        #StandardScaler
+        # print("normalize numerical features:{0}".format(self.numerical_cols))
+        # self.scaler.fit(self.df[self.numerical_cols])
+        # df_numerical = self.scaler.transform(self.df[self.numerical_cols])
+        # self.df = pd.concat([self.df[self.categorical_cols],df_numerical],axis=1)
+
         print("=" * 60)
         print("feature_offset:{0}".format(self.feature_offset))
         print("=" * 60)
@@ -199,6 +203,8 @@ class FeatureProcessor(BaseEstimator):
         return self
 
     def transform(self, df):
+        print("in transform")
+        print(ColumnSummary(df))
         for fp in self.feature_processors:
             fp.transform(df)
         df_tmp = df[self.feature_name]
@@ -313,6 +319,31 @@ class OutliersFilter(TransformerMixin):
         maxval = Q1 - 1.5 * IQR
         return (data < minval) | (data > maxval)
 
+class MissingImputer(TransformerMixin):
+
+    def __init__(self):
+        """Impute missing values.
+
+        Columns of dtype object are imputed with the most frequent value
+        in column.
+
+        Columns of other types are imputed with mean of column.
+
+        """
+    def fit(self, X, y=None):
+
+        self.fill = pd.Series([X[c].value_counts().index[0]
+            if X[c].dtype == np.dtype('O') else X[c].mean() for c in X],
+            index=X.columns)
+
+        return self
+
+    def transform(self, X, y=None):
+        return X.fillna(self.fill,inplace=True)
+
+    def fit_transform(self, df,y=None):
+        return self.fit(df,y).transform(df,y)
+
 
 class ContinuousFeatureTransformer(TransformerMixin):
     def __init__(self, col_name, col_type, params):
@@ -355,8 +386,15 @@ class CategoricalFeatureTransformer(TransformerMixin):
         self.params = params
         self.feature2id = {}
         self.id2feature = {}
+        # self.imputer = MissingImputer()
+
 
     def fit(self, df):
+        #fill missing value with mod
+        mod_value = df[self.col_name].value_counts().index[0]
+        print("{0} mod value:{1}".format(self.col_name,mod_value))
+        df[self.col_name].fillna(mod_value,inplace=True)
+        #generate feature index mapping
         idx = 0
         self.feature2id = {}
         self.id2feature = {}

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import scipy
 import gc
 import sys
 import os
@@ -81,6 +82,8 @@ scale_pos_weight=(y[y==0].shape[0])*1.0/(y[y==1].shape[0])
 print("scale_pos_weight:",scale_pos_weight)
 bfp = FeatureProcessor(X,y)
 feature_matrix = bfp.fit_transform(X)
+# with open("~/dataset/rec_data_train_feature_matrix.npz","w") as f:
+scipy.sparse.save_npz("/home/tanglek/dataset/rec_data_train_feature_matrix.npz", feature_matrix)
 print(str(bfp))
 
 idx2featurename = dict((y,x) for x,y in bfp.feature_names.items())
