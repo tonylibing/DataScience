@@ -203,7 +203,7 @@ class FeatureProcessor(BaseEstimator):
         return self
 
     def transform(self, df):
-        print("in transform")
+        # print("in transform")
         print(ColumnSummary(df))
         for fp in self.feature_processors:
             fp.transform(df)
@@ -391,9 +391,9 @@ class CategoricalFeatureTransformer(TransformerMixin):
 
     def fit(self, df):
         #fill missing value with mod
-        mod_value = df[self.col_name].value_counts().index[0]
-        print("{0} mod value:{1}".format(self.col_name,mod_value))
-        df[self.col_name].fillna(mod_value,inplace=True)
+        # mod_value = df[self.col_name].value_counts().index[0]
+        # print("{0} mod value:{1}".format(self.col_name,mod_value))
+        # df[self.col_name].fillna(mod_value,inplace=True)
         #generate feature index mapping
         idx = 0
         self.feature2id = {}

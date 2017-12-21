@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score,accuracy_score,average_precision_score,roc_curve,auc
 
 def ks_statistic(Y,Y_hat):
     data = {"Y":Y,"Y_hat":Y_hat}
@@ -16,3 +19,27 @@ def ks_statistic(Y,Y_hat):
     df5 = df4/df4.iloc[:,1].max()
     ks = max(abs(df5.iloc[:,0] - df5.iloc[:,1]))
     return ks/len(bins)
+
+def plot_auc(y_test,y_score):
+    fpr, tpr, thresholds = roc_curve(y_test, y_score)
+    roc_auc = auc(fpr, tpr)  # compute area under the curve
+
+    plt.figure()
+    plt.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % (roc_auc))
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver operating characteristic')
+    plt.legend(loc="lower right")
+
+    # create the axis of thresholds (scores)
+    ax2 = plt.gca().twinx()
+    ax2.plot(fpr, thresholds, markeredgecolor='r', linestyle='dashed', color='r')
+    ax2.set_ylabel('Threshold', color='r')
+    ax2.set_ylim([thresholds[-1], thresholds[0]])
+    ax2.set_xlim([fpr[0], fpr[-1]])
+
+    plt.savefig('roc_and_threshold.png')
+    plt.close()
