@@ -36,10 +36,10 @@ if sampling_flag:
         #data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
         print(data.columns.values)
         y=data['invest']
-        data[data['age'] < 0] = np.nan
-        data[data['total_balance'] < 0] = 0
-        data[data['fst_invest_days'] < 0] = 0
-        data[data['highest_asset_amt'] < 0] = 0
+        data.loc[data['age'] < 0] = np.nan
+        data.loc[data['total_balance'] < 0] = 0
+        data.loc[data['fst_invest_days'] < 0] = 0
+        data.loc[data['highest_asset_amt'] < 0] = 0
         data['invest_period_by_days'].fillna(0,inplace=True)
         X = data.drop(['rd','click','invest','invest_amount','mobile_no_attribution'],axis=1)
         #X=data[[col for col in data.columns if col not in ['invest','invest_amount']]]

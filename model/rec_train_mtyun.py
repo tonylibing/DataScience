@@ -99,10 +99,11 @@ def main(_):
         print("load saved training data")
         with tf.gfile.FastGFile(os.path.join(args.data_dir, "rec_data_train_save.csv")) as gf:
             data = pd.read_csv(gf, sep=',',encoding="ISO-8859-1")
-        data[data['age'] < 0] = np.nan
-        data[data['total_balance'] < 0] = 0
-        data[data['fst_invest_days'] < 0] = 0
-        data[data['highest_asset_amt'] < 0] = 0
+        data.loc[data['age'] < 0] = np.nan
+        data.loc[data['total_balance'] < 0] = 0
+        data.loc[data['fst_invest_days'] < 0] = 0
+        data.loc[data['highest_asset_amt'] < 0] = 0
+        data['invest_period_by_days'].fillna(0,inplace=True)
         print(data.groupby("invest").size())
         print(data.columns)
         y = data['invest']
@@ -112,6 +113,7 @@ def main(_):
     print("scale_pos_weight:",scale_pos_weight)
     bfp = FeatureProcessor(X,y)
     feature_matrix = bfp.fit_transform(X)
+    # feature_matrix.todense().describe()
 
     print(str(bfp))
 
