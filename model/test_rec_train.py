@@ -30,18 +30,19 @@ if sampling_flag:
         y = data['invest']
         X = data.drop(['invest'], axis=1)
     else:
-        data=pd.read_csv("~/dataset/rec_data_train_save.csv",sep=',')
+        data=pd.read_csv("~/dataset/rec_data.csv",sep=',')
         # data=pd.read_csv("~/dataset/rec_data_train_3w.csv",sep=',')
         # data=pd.read_csv("E:/dataset/rec_data_train_3w.csv",sep=',')
         #data=pd.read_csv("/media/sf_D_DRIVE/download/rec_data_train_save.csv",sep=',')
         print(data.columns.values)
         y=data['invest']
-        data.loc[data['age'] < 0] = np.nan
-        data.loc[data['total_balance'] < 0] = 0
-        data.loc[data['fst_invest_days'] < 0] = 0
-        data.loc[data['highest_asset_amt'] < 0] = 0
-        data['invest_period_by_days'].fillna(0,inplace=True)
-        X = data.drop(['rd','click','invest','invest_amount','mobile_no_attribution'],axis=1)
+        # data.loc[data['age'] < 0] = np.nan
+        # data.loc[data['total_balance'] < 0] = 0
+        # data.loc[data['fst_invest_days'] < 0] = 0
+        # data.loc[data['highest_asset_amt'] < 0] = 0
+        # data['invest_period_by_days'].fillna(0,inplace=True)
+        # X = data.drop(['rd','click','invest','invest_amount','mobile_no_attribution'],axis=1)
+        X = data.drop(['invest'],axis=1)
         #X=data[[col for col in data.columns if col not in ['invest','invest_amount']]]
         #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999,stratify=y)
 
@@ -53,7 +54,6 @@ if sampling_flag:
         # rus = RandomUnderSampler(random_state=42)
         # X_res, y_res = rus.fit_sample(X, y)
 
-        from sklearn.model_selection import train_test_split
         X_n = X[y==0]
         y_n = y[y==0]
         X_y = X[y==1]
@@ -78,6 +78,7 @@ else:
     print(data.columns)
     y = data['invest']
     X = data.drop(['rd','click','invest','invest_amount','mobile_no_attribution'],axis=1)
+    # X = data.drop(['rd','click','invest','invest_amount','mobile_no_attribution'],axis=1)
 
 scale_pos_weight=(y[y==0].shape[0])*1.0/(y[y==1].shape[0])
 print("scale_pos_weight:",scale_pos_weight)
