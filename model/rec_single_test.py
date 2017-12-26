@@ -29,6 +29,9 @@ if sampling_flag:
         print(data.columns)
         y = data['invest']
         X = data.drop(['invest','user_group','app_version','transfer_flag'], axis=1)
+        upp = pd.read_csv("~/dataset/user_profile_products2.csv", sep=',')
+        X_s = upp[X.columns.values]
+        # print("X_s:".format(X_s.columns.values))
     else:
         data=pd.read_csv("~/dataset/rec_data.csv",sep=',')
         # data=pd.read_csv("~/dataset/rec_data_train_3w.csv",sep=',')
@@ -87,6 +90,7 @@ sl.fit(X,y)
 X=sl.transform(X)
 bfp = FeatureEncoder()
 feature_matrix = bfp.fit_transform(X)
+X_s2 = bfp.transform(X_s[sl.selected_cols])
 # with open("~/dataset/rec_data_train_feature_matrix.npz","w") as f:
 scipy.sparse.save_npz("/home/tanglek/dataset/rec_data_train_feature_matrix.npz", feature_matrix)
 print(str(bfp))
@@ -232,6 +236,15 @@ lgbmlr.fit(X_train,y_train)
 y_pre= lgbmlr.predict(X_test)
 y_pro= lgbmlr.predict_proba(X_test)[:,1]
 y_pro2= gbm.predict_proba(X_train)[:,1]
+#single test
+y_proxs =  lgbmlr.predict_proba(X_s2)
+dd = pd.concat([X_s,upp[['interest_rate','display_name']],pd.DataFrame(y_proxs[:,1])],axis=1)
+dd.columns.values[-1]='proba'
+print("*"*60)
+print(dd.columns.values)
+dd = dd.sort_values(['proba'], ascending=False).groupby(['item','product_category']).head(3)
+dd[['invest_period_by_days', 'product_price','item','product_category','interest_rate','display_name','proba']].to_csv("~/dataset/rec_results.csv",index=False,header=True)
+
 print("="*60)
 # print("Lightgbm+LR Training AUC Score : {0}".format(roc_auc_score(y_train, y_pro2)))
 print("Lightgbm+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))

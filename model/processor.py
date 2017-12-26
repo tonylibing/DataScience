@@ -29,6 +29,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import normalize
+from sklearn.preprocessing import RobustScaler
 from sklearn.svm import LinearSVC
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
@@ -75,19 +77,80 @@ def ColumnSummary(df, label_col='label', id_cols=None):
     # all.to_csv('colummn_summary.csv',index=False,header=True)
     return all
 
-class BaseFeatureProcessor:
-    def __init__(self, col_name, feature_type, params):
-        self.col_name = col_name
-        self.feature_type = feature_type
-        self.params = params
+class FeatureSelection(TransformerMixin):
+    def __init__(self):
+        self.column_type = None
+        self.variance_selector = VarianceThreshold()
+        # self.variance_selector = VarianceThreshold(threshold=.001)
+        self.scaler = RobustScaler()
+        # self.scaler = StandardScaler()
+        self.numerical_cols = []
+        self.categorical_cols = []
+        self.selected_cols = []
 
-    def persist(self):
-        pass
 
-    def load(self):
-        pass
+    def fit(self, X,y):
+        print("before feature selection")
+        print(X.columns.values)
+        origin_features = set(X.columns.values)
+        print(len(X.columns.values))
+        #drop missing too much columns
+        self.column_summary = ColumnSummary(X)
+        self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
+        drop_cols = self.column_summary[self.column_summary['missing_pct']>0.99]['col_name']
 
-class FeatureProcessor(BaseEstimator):
+        if len(drop_cols)>0:
+            print("drop missing too much columns:{0}".format(drop_cols))
+            # df.drop(drop_cols,axis=0,inplace=True)
+
+        for col, col_type in self.column_type.items():
+            if col_type == 'numerical':
+                self.numerical_cols.append(col)
+            elif col_type == 'categorical':
+                self.categorical_cols.append(col)
+
+        #feature selection
+        print(self.numerical_cols)
+        print(self.categorical_cols)
+        df_cat = X[self.categorical_cols]
+        df_nonna = X[self.numerical_cols].dropna()
+        y_tmp = y[df_nonna.index]
+        # print(df_nonna.index.values)
+        #normalize numerical features
+        # df_norm = pd.DataFrame(normalize(df_nonna,axis=0),columns=self.numerical_cols)
+        df_norm = pd.DataFrame(self.scaler.fit_transform(df_nonna),columns=self.numerical_cols)
+        df_numerical = self.variance_selector.fit_transform(df_norm)
+        idxs_selected = self.variance_selector.get_support(indices=True)
+        print("variance threshold:")
+        print(df_nonna.columns[idxs_selected])
+        print(len(df_nonna.columns[idxs_selected]))
+        self.selected_cols = list(df_nonna.columns[idxs_selected]) + self.categorical_cols
+        #chi2
+        # df2 = df_nonna[df_nonna.columns[idxs_selected]]
+        # selector = SelectKBest(chi2, k=int(len(df2.columns)*0.95))
+        # df_numerical = selector.fit_transform(df2,y_tmp)
+        # idxs_selected = selector.get_support(indices=True)
+        # print("ch2 selection")
+        # print(df2.columns[idxs_selected])
+        # print(len(df2.columns[idxs_selected]))
+        #
+        # self.selected_cols=list(df2.columns[idxs_selected]) + self.categorical_cols
+        print("after feature selection")
+        print(self.selected_cols)
+        print(len(self.selected_cols))
+        print("dropped columns:")
+        print(origin_features - set(self.selected_cols))
+
+        return self
+
+    def transform(self, X):
+        return X[self.selected_cols]
+
+    def fit_transform(self, X,y):
+        return self.fit(X,y).transform(X)
+
+
+class FeatureEncoder(BaseEstimator):
     """
     1. drop missing columns according to missing percentage, filter outliers
     2. detect column type
@@ -98,89 +161,34 @@ class FeatureProcessor(BaseEstimator):
     7. to sparse feature matrix or dense
     """
 
-    def __init__(self, df, y,feature_processors=None, parallel=False):
-        self.df = df
-        self.column_summray = ColumnSummary(self.df)
-        self.column_type = self.column_summray.set_index('col_name')['ColumnType'].to_dict()
+    def __init__(self):
+        self.column_type = None
         self.feature_matrix = None
         self.feature_processors = []
-        self.variance_selector = VarianceThreshold(threshold=.001)
+        self.variance_selector = VarianceThreshold(threshold=.99*(1-.99))
         self.scaler = StandardScaler()
         self.feature_names = {}
         self.numerical_cols = []
         self.categorical_cols = []
-        #drop missing too much columns
-        drop_cols = self.column_summray[self.column_summray['missing_pct']>0.95]['col_name']
-        if len(drop_cols)>0:
-            print("drop missing too much columns:{0}".format(drop_cols))
-            self.df.drop(drop_cols,axis=0,inplace=True)
 
-        if feature_processors:
-            self.feature_processors = feature_processors
-        else:
-            print('generate default feature processors')
-            if parallel:
-                for col, col_type in self.column_type.items():
-                    if col_type == 'numerical':
-                        self.numerical_cols.append(col)
-                        fp = ContinuousFeatureTransformer(col, col_type, {})
-                        self.feature_processors.append(fp)
-                    elif col_type == 'categorical':
-                        self.categorical_cols.append(col)
-                        fp = CategoricalFeatureTransformer(col, col_type, {})
-                        self.feature_processors.append(fp)
-            else:
-                for col, col_type in self.column_type.items():
-                    if col_type == 'numerical':
-                        self.numerical_cols.append(col)
-                        fp = ContinuousFeatureTransformer(col, col_type, {})
-                        self.feature_processors.append(fp)
-                    elif col_type == 'categorical':
-                        self.categorical_cols.append(col)
-                        fp = CategoricalFeatureTransformer(col, col_type, {})
-                        self.feature_processors.append(fp)
+    def fit(self, df):
+        #column summary
+        self.column_summary = ColumnSummary(df)
+        self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
 
-        #feature selection
-        print(self.numerical_cols)
-        print(self.categorical_cols)
-        df_cat = self.df[self.categorical_cols]
-        # self.df[numerical_cols] =
-        # self.df[numerical_cols]=self.df[numerical_cols].astype(np.float64)
-        df_nonna = self.df[self.numerical_cols].dropna()
-        y_tmp = y[df_nonna.index]
-        # print(df_nonna.index.values)
-        df_numerical = self.variance_selector.fit_transform(df_nonna)
-        idxs_selected = self.variance_selector.get_support(indices=True)
-        print(type(idxs_selected))
-        print(idxs_selected)
-        print(df_nonna.columns[idxs_selected])
-        # print(df_numerical.index.values)
-        df2 = df_nonna[df_nonna.columns[idxs_selected]]
-        selector = SelectKBest(chi2, k=int(len(df2.columns)*0.9))
-        df_numerical = selector.fit_transform(df2,y_tmp)
-        idxs_selected = selector.get_support(indices=True)
-        print(df2.columns[idxs_selected])
-        df_numerical = pd.DataFrame(df_numerical, columns=df2.columns[idxs_selected])
-        self.numerical_cols = df_numerical.columns
+        for col in df.columns.values:
+            if self.column_type[col]=='numerical':
+                fp = ContinuousFeatureTransformer(col, self.column_type[col], {})
+                self.feature_processors.append(fp)
+            elif self.column_type[col]=='categorical':
+                fp = CategoricalFeatureTransformer(col, self.column_type[col], {})
+                self.feature_processors.append(fp)
 
-        self.df=pd.concat([df_cat,df_numerical],axis=1)
-        # print(ColumnSummary(self.df))
-        #filter droped cols
-        feature_processors = []
-        for fp in self.feature_processors:
-            if fp.col_name in self.df.columns.values:
-                feature_processors.append(fp)
-            else:
-                pass
-
-        self.feature_processors = feature_processors
         print("="*60)
         for fp in self.feature_processors:
             print('col:{0},type:{1},params:{2}'.format(fp.col_name, fp.col_type, fp.params))
         print("="*60)
 
-
-    def fit(self, df):
         self.feature_offset = {}
         self.feature_name = []
         self.length = 0
@@ -203,7 +211,8 @@ class FeatureProcessor(BaseEstimator):
         return self
 
     def transform(self, df):
-        # print("in transform")
+        print("in transform")
+        print(len(df.columns.values))
         print(ColumnSummary(df))
         for fp in self.feature_processors:
             fp.transform(df)
@@ -248,17 +257,6 @@ class FeatureProcessor(BaseEstimator):
         sorted_x = sorted(self.feature_names.items(), key=operator.itemgetter(1))
         info = processors+"\n"+json.dumps(sorted_x)
         return info
-
-class ColumnExtractor(TransformerMixin):
-    def __init__(self, columns):
-        self.columns = columns
-
-    def fit(self, *_):
-        return self
-
-    def transform(self, X):
-        return X[self.columns]
-
 
 class OutliersFilter(TransformerMixin):
     def __init__(self, column, method="percentile", threshold=95):
@@ -973,7 +971,7 @@ class ReduceVIF(BaseEstimator, TransformerMixin):
 
 
 class XgboostLRClassifier(BaseEstimator):
-    def __init__(self,combine_feature = True,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
+    def __init__(self,combine_feature = True,n_estimators=30,learning_rate =0.3,max_depth=4,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
         #gbdt model parameters
         self.n_estimators=n_estimators
@@ -1013,6 +1011,8 @@ class XgboostLRClassifier(BaseEstimator):
         #numerical feature binner
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
+        #scaler
+        self.scaler = StandardScaler()
 
     def feature_importance(self):
         return self.gbdt_model.feature_importances_
@@ -1106,7 +1106,9 @@ class XgboostLRClassifier(BaseEstimator):
 
     def transform(self, X):
         new_feature_test = self.gbdt_model.apply(X)
-        X_test_new = self.gen_gbdt_lr_features(X, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
+        #normalize X numerical features
+        X_tmp = pd.DataFrame(self.scaler.fit_transform(X[self.numerical_cols]), columns=self.numerical_cols)
+        X_test_new = self.gen_gbdt_lr_features(X_tmp, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
         return X_test_new
 
     def predict(self, X):
@@ -1118,7 +1120,7 @@ class XgboostLRClassifier(BaseEstimator):
         return self.lr_model.predict_proba(test1)
 
 class LightgbmLRClassifier(BaseEstimator):
-    def __init__(self, combine_feature = True,n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3,
+    def __init__(self, combine_feature = True,n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=1, gamma=0.3,
                  subsample=0.7, colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1,
                  reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
@@ -1151,7 +1153,7 @@ class LightgbmLRClassifier(BaseEstimator):
         #     reg_alpha=self.reg_alpha,
         #     reg_lambda=self.reg_lambda,
         #     seed=self.seed)
-        self.gbdt_model = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30,scale_pos_weight=scale_pos_weight, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
+        self.gbdt_model = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=4, learning_rate=0.3, n_estimators=30,scale_pos_weight=scale_pos_weight, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
         # lr model parameters
         self.lr_penalty = lr_penalty
         self.lr_c = lr_c
