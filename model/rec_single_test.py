@@ -146,6 +146,17 @@ lgbm = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=4, learning_rate=0.3,
 lgbm.fit(X_train,y_train)
 y_pre= lgbm.predict(X_test)
 y_pro= lgbm.predict_proba(X_test)[:,1]
+
+#single test
+y_proxs =  lgbm.predict_proba(X_s2)
+dd = pd.concat([X_s,upp[['interest_rate','display_name']],pd.DataFrame(y_proxs[:,1])],axis=1)
+dd.columns.values[-1]='proba'
+print("*"*60)
+print(dd.columns.values)
+dd = dd.sort_values(['proba'], ascending=False).groupby(['item','product_category']).head(3)
+dd[['invest_period_by_days', 'product_price','item','product_category','interest_rate','display_name','proba']].to_csv("~/dataset/rec_results.csv",index=False,header=True)
+
+
 print("="*60)
 print("lightgbm model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
 print("lightgbm model Test Precision: {0}".format(precision_score(y_test, y_pre)))
@@ -237,13 +248,13 @@ y_pre= lgbmlr.predict(X_test)
 y_pro= lgbmlr.predict_proba(X_test)[:,1]
 y_pro2= gbm.predict_proba(X_train)[:,1]
 #single test
-y_proxs =  lgbmlr.predict_proba(X_s2)
-dd = pd.concat([X_s,upp[['interest_rate','display_name']],pd.DataFrame(y_proxs[:,1])],axis=1)
-dd.columns.values[-1]='proba'
-print("*"*60)
-print(dd.columns.values)
-dd = dd.sort_values(['proba'], ascending=False).groupby(['item','product_category']).head(3)
-dd[['invest_period_by_days', 'product_price','item','product_category','interest_rate','display_name','proba']].to_csv("~/dataset/rec_results.csv",index=False,header=True)
+# y_proxs =  lgbmlr.predict_proba(X_s2)
+# dd = pd.concat([X_s,upp[['interest_rate','display_name']],pd.DataFrame(y_proxs[:,1])],axis=1)
+# dd.columns.values[-1]='proba'
+# print("*"*60)
+# print(dd.columns.values)
+# dd = dd.sort_values(['proba'], ascending=False).groupby(['item','product_category']).head(3)
+# dd[['invest_period_by_days', 'product_price','item','product_category','interest_rate','display_name','proba']].to_csv("~/dataset/rec_results.csv",index=False,header=True)
 
 print("="*60)
 # print("Lightgbm+LR Training AUC Score : {0}".format(roc_auc_score(y_train, y_pro2)))

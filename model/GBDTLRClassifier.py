@@ -10,7 +10,7 @@ from scipy.sparse import csr_matrix
 
 
 class XgboostLRClassifier(BaseEstimator):
-    def __init__(self,combine_feature = True,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
+    def __init__(self,combine_feature = False,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature
         #gbdt model parameters
         self.n_estimators=n_estimators
@@ -145,7 +145,7 @@ class XgboostLRClassifier(BaseEstimator):
         return self.lr_model.predict_proba(test1)
 
 class LightgbmLRClassifier(BaseEstimator):
-    def __init__(self, combine_feature = True,n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3,
+    def __init__(self, combine_feature = False,n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3,
                  subsample=0.7, colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1,
                  reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0, lr_random_state=42):
         self.combine_feature = combine_feature

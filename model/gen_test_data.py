@@ -71,5 +71,5 @@ def df_crossjoin(df1, df2, **kwargs):
 df = df_crossjoin(up,products)
 
 df.to_csv(dir_prefix +"/dataset/user_profile_products.csv",index=False,header=True)
-df2=df[df['user_id']==657779]
+df2=df[df['user_id']==876553]
 df2.to_csv(dir_prefix +"/dataset/user_profile_products2.csv",index=False,header=True)

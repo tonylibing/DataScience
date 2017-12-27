@@ -99,6 +99,8 @@ print(str(bfp))
 idx2featurename = dict((y, x) for x, y in bfp.feature_names.items())
 
 print("feature_matrix shape:{0}".format(feature_matrix.shape))
+# scaler = StandardScaler(with_mean=False)
+# feature_matrix = scaler.fit_transform(feature_matrix)
 
 X_train, X_test, y_train, y_test = train_test_split(feature_matrix, y, test_size=0.3, random_state=999, stratify=y)
 print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))
@@ -171,54 +173,6 @@ print("=" * 60)
 print("Xgboost+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
 print("Xgboost+LR  Test Precision: {0}".format(precision_score(y_test, y_pre)))
 print("Xgboost+LR  Test   Recall : {0}".format(recall_score(y_test, y_pre)))
-print("Xgboost+LR Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
-print("Xgboost+LR KS: {0}".format(ks_statistic(y_test, y_pro)))
-print("Xgboost+LR  Test confusion_matrix :")
-print(confusion_matrix(y_test, y_pre))
-print("=" * 60)
-
-fi = gbdtlr.feature_importance()
-fi = list(zip(list(range(len(fi))), fi))
-fi = sorted(fi, key=lambda tup: tup[1], reverse=True)
-for idx, importance in fi:
-    print("{0}:{1}".format(idx2featurename[idx], importance))
-
-data = {"y_test": y_test, "y_pro": y_pro}
-df = pd.DataFrame(data)
-df.to_csv("~/dataset/xgb_lr_combine_y_test_pro.csv", index=False, header=True)
-
-lgbmlr = LightgbmLRClassifier(scale_pos_weight=scale_pos_weight)
-lgbmlr.fit(X_train, y_train)
-y_pre = lgbmlr.predict(X_test)
-y_pro = lgbmlr.predict_proba(X_test)[:, 1]
-print("=" * 60)
-print("Lightgbm+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
-print("Lightgbm+LR  Test Precision: {0}".format(precision_score(y_test, y_pre)))
-print("Lightgbm+LR  Test   Recall : {0}".format(recall_score(y_test, y_pre)))
-print("Lightgbm+LR  Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
-print("Lightgbm+LR KS: {0}".format(ks_statistic(y_test, y_pro)))
-print("Lightgbm+LR  Test confusion_matrix :")
-print(confusion_matrix(y_test, y_pre))
-print("=" * 60)
-
-fi = lgbmlr.feature_importance()
-fi = list(zip(list(range(len(fi))), fi))
-fi = sorted(fi, key=lambda tup: tup[1], reverse=True)
-for idx, importance in fi:
-    print("{0}:{1}".format(idx2featurename[idx], importance))
-
-data = {"y_test": y_test, "y_pro": y_pro}
-df = pd.DataFrame(data)
-df.to_csv("~/dataset/lgb_lr_combine_y_test_pro.csv", index=False, header=True)
-
-gbdtlr = XgboostLRClassifier(combine_feature=False, scale_pos_weight=scale_pos_weight)
-gbdtlr.fit(X_train, y_train)
-y_pre = gbdtlr.predict(X_test)
-y_pro = gbdtlr.predict_proba(X_test)[:, 1]
-print("=" * 60)
-print("Xgboost+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
-print("Xgboost+LR  Test Precision: {0}".format(precision_score(y_test, y_pre)))
-print("Xgboost+LR  Test   Recall : {0}".format(recall_score(y_test, y_pre)))
 print("Xgboost+LR  Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
 print("Xgboost+LR KS: {0}".format(ks_statistic(y_test, y_pro)))
 print("Xgboost+LR  Test confusion_matrix :")
@@ -234,7 +188,7 @@ data = {"y_test": y_test, "y_pro": y_pro}
 df = pd.DataFrame(data)
 df.to_csv("~/dataset/xgb_lr_no_combine_y_test_pro.csv", index=False, header=True)
 
-lgbmlr = LightgbmLRClassifier(combine_feature=False, scale_pos_weight=scale_pos_weight)
+lgbmlr = LightgbmLRClassifier(scale_pos_weight=scale_pos_weight)
 lgbmlr.fit(X_train, y_train)
 y_pre = lgbmlr.predict(X_test)
 y_pro = lgbmlr.predict_proba(X_test)[:, 1]
