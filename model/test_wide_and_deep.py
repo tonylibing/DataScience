@@ -3,8 +3,10 @@ import os
 import torch
 import numpy as np
 import pandas as pd
-from wide_deep.torch_model import WideDeep
-from wide_deep.data_utils import prepare_data
+from WideDeepClassifier import WideDeep
+from WideDeepClassifier import prepare_data
+# from wide_deep.torch_model import WideDeep
+# from wide_deep.data_utils import prepare_data
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from itertools import cycle
-from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score,accuracy_score,average_precision_score,roc_curve,auc
+from sklearn.metrics import confusion_matrix, recall_score, precision_score,f1_score, roc_auc_score,accuracy_score,average_precision_score,roc_curve,auc,precision_recall_curve
 
 def ks_statistic(Y,Y_hat):
     data = {"Y":Y,"Y_hat":Y_hat}
@@ -94,4 +94,49 @@ def plot_multi_auc_thresholds(y_tests,y_scores,model_names):
 
     plt.show()
     plt.savefig('roc_and_threshold.png')
+    plt.close()
+
+def plot_precision_recall_curve(y_test,y_score):
+    average_precision = average_precision_score(y_test, y_score)
+    precision, recall, _ = precision_recall_curve(y_test, y_score)
+
+    plt.step(recall, precision, color='b', alpha=0.2,
+             where='post')
+    plt.fill_between(recall, precision, step='post', alpha=0.2,
+                     color='b')
+
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.ylim([0.0, 1.05])
+    plt.xlim([0.0, 1.0])
+    plt.title('2-class Precision-Recall curve: AP={0:0.2f}'.format(
+              average_precision))
+    plt.savefig('precision_recall_curve.png')
+    plt.show()
+    plt.close()
+
+
+
+def plot_prec_recall_vs_tresh(y_test,y_score):
+    precisions, recalls, thresholds = precision_recall_curve(y_test,y_score)
+    plt.plot(thresholds, precisions[:-1], 'b--', label='precision')
+    plt.plot(thresholds, recalls[:-1], 'g--', label = 'recall')
+    plt.xlabel('Threshold')
+    plt.legend(loc='upper left')
+    plt.ylim([0,1])
+    plt.savefig('plot_prec_recall_vs_tresh.png')
+    plt.show()
+    plt.close()
+
+def plot_prec_recall_f1_vs_tresh(y_test,y_score):
+    precisions, recalls, thresholds = precision_recall_curve(y_test,y_score)
+    plt.plot(thresholds, precisions[:-1], 'b--', label='precision')
+    plt.plot(thresholds, recalls[:-1], 'g--', label = 'recall')
+    f1 = f1_score(precisions,recalls)
+    plt.plot(thresholds, f1, 'g--', label = 'F1')
+    plt.xlabel('Threshold')
+    plt.legend(loc='upper left')
+    plt.ylim([0,1])
+    plt.savefig('plot_prec_recall_vs_tresh.png')
+    plt.show()
     plt.close()

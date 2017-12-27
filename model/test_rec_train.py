@@ -15,8 +15,10 @@ from processor import *
 from imblearn.ensemble import EasyEnsemble
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score, accuracy_score, \
+from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score,f1_score, accuracy_score, \
     average_precision_score
+from sklearn.metrics import precision_recall_curve
+import matplotlib.pyplot as plt
 from metrics import ks_statistic
 import xgboost as xgb
 import lightgbm as lgb
@@ -99,8 +101,8 @@ print(str(bfp))
 idx2featurename = dict((y, x) for x, y in bfp.feature_names.items())
 
 print("feature_matrix shape:{0}".format(feature_matrix.shape))
-# scaler = StandardScaler(with_mean=False)
-# feature_matrix = scaler.fit_transform(feature_matrix)
+scaler = StandardScaler(with_mean=False)
+feature_matrix = scaler.fit_transform(feature_matrix)
 
 X_train, X_test, y_train, y_test = train_test_split(feature_matrix, y, test_size=0.3, random_state=999, stratify=y)
 print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))
@@ -114,6 +116,7 @@ print("=" * 60)
 print("LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
 print("LR  Test Precision: {0}".format(precision_score(y_test, y_pre)))
 print("LR  Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+print("LR Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
 print("LR  Test Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
 print("LR  KS: {0}".format(ks_statistic(y_test, y_pro)))
 print("LR  Test confusion_matrix :")
@@ -137,6 +140,7 @@ print("=" * 60)
 print("Xgboost model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
 print("Xgboost model Test Precision: {0}".format(precision_score(y_test, y_pre)))
 print("Xgboost model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+print("Lightgbm+LR Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
 print("Xgboost model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
 print("Xgboost KS: {0}".format(ks_statistic(y_test, y_pro)))
 print("Xgboost Test confusion_matrix :")
@@ -156,6 +160,7 @@ print("=" * 60)
 print("lightgbm model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
 print("lightgbm model Test Precision: {0}".format(precision_score(y_test, y_pre)))
 print("lightgbm model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+print("Lightgbm+LR Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
 print("lightgbm model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
 print("Lightgbm KS: {0}".format(ks_statistic(y_test, y_pro)))
 print("Lightgbm Test confusion_matrix :")
@@ -173,6 +178,7 @@ print("=" * 60)
 print("Xgboost+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
 print("Xgboost+LR  Test Precision: {0}".format(precision_score(y_test, y_pre)))
 print("Xgboost+LR  Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+print("Lightgbm+LR Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
 print("Xgboost+LR  Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
 print("Xgboost+LR KS: {0}".format(ks_statistic(y_test, y_pro)))
 print("Xgboost+LR  Test confusion_matrix :")
@@ -198,6 +204,7 @@ print("=" * 60)
 print("Lightgbm+LR Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
 print("Lightgbm+LR  Test Precision: {0}".format(precision_score(y_test, y_pre)))
 print("Lightgbm+LR  Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+print("Lightgbm+LR Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
 print("Lightgbm+LR Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
 print("Lightgbm+LR KS: {0}".format(ks_statistic(y_test, y_pro)))
 print("Lightgbm+LR  Test confusion_matrix :")
