@@ -32,6 +32,8 @@ if sampling_flag:
         print(data.groupby("invest").size())
         print(data.columns)
         y = data['invest']
+        data['ratio'] = data['total_balance']*1.0/(data['product_price']+1.0)
+        # data['sub_interest_rate']=data['interest_rate']-0.04
         X = data.drop(['invest', 'user_group', 'app_version', 'transfer_flag'], axis=1)
     else:
         data = pd.read_csv("~/dataset/rec_data.csv", sep=',')
@@ -101,8 +103,8 @@ print(str(bfp))
 idx2featurename = dict((y, x) for x, y in bfp.feature_names.items())
 
 print("feature_matrix shape:{0}".format(feature_matrix.shape))
-scaler = StandardScaler(with_mean=False)
-feature_matrix = scaler.fit_transform(feature_matrix)
+# scaler = StandardScaler(with_mean=False)
+# feature_matrix = scaler.fit_transform(feature_matrix)
 
 X_train, X_test, y_train, y_test = train_test_split(feature_matrix, y, test_size=0.3, random_state=999, stratify=y)
 print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))

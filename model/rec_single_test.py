@@ -28,8 +28,10 @@ if sampling_flag:
         print(data.groupby("invest").size())
         print(data.columns)
         y = data['invest']
+        data['ratio'] = data['total_balance'] * 1.0 / (data['product_price'] + 1.0)
         X = data.drop(['invest','user_group','app_version','transfer_flag'], axis=1)
         upp = pd.read_csv("~/dataset/user_profile_products2.csv", sep=',')
+        upp['ratio'] = upp['total_balance'] * 1.0 / (upp['product_price'] + 1.0)
         X_s = upp[X.columns.values]
         # print("X_s:".format(X_s.columns.values))
     else:

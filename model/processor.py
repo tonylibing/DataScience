@@ -24,6 +24,7 @@ from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import Imputer
@@ -49,6 +50,7 @@ def ColumnInfo(df, col):
         col_type = 'time'
     elif col.endswith('_id'):
         col_type = 'id'
+        # col_type = 'categorical'
     elif col.startswith('dayOf') or col.startswith('hourOf') or ('category' in col) or ('level' in col) or (
                 'flag' in col) or ('version' in col):
         col_type = 'categorical'
@@ -1022,8 +1024,8 @@ class XgboostLRClassifier(BaseEstimator):
         self.lr_c = lr_c
         self.lr_random_state = lr_random_state
         print("init lr model")
-        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',
-                                           random_state=lr_random_state)
+        # self.lr_model = SGDClassifier(loss='log')
+        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',random_state=lr_random_state)
         # numerical feature binner
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
@@ -1219,8 +1221,8 @@ class LightgbmLRClassifier(BaseEstimator):
         self.lr_c = lr_c
         self.lr_random_state = lr_random_state
         print("init lr model")
-        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',
-                                           random_state=lr_random_state)
+        # self.lr_model = SGDClassifier(loss='log')
+        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',random_state=lr_random_state)
         # numerical feature binner
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
