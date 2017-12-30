@@ -3,15 +3,16 @@ import numpy as np
 import scipy
 import gc
 import sys
+sys.path.append("../..")
 import os
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 import xgboost as xgb
-import processor
+import feature.processor
 from importlib import reload
 
-reload(processor)
-from processor import *
+reload(feature.processor)
+from feature.processor import *
 from imblearn.ensemble import EasyEnsemble
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import train_test_split
@@ -19,10 +20,11 @@ from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc
     average_precision_score
 from sklearn.metrics import precision_recall_curve
 import matplotlib.pyplot as plt
-from metrics import ks_statistic
+from eval.metrics import ks_statistic
 import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
+from model.GBDTLRClassifier import *
 
 sampling_flag = True
 if sampling_flag:
@@ -110,7 +112,7 @@ X_train, X_test, y_train, y_test = train_test_split(feature_matrix, y, test_size
 print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))
 print("test set y=1:{0}".format(y_test[y_test == 1].shape[0]))
 
-lr = LogisticRegression(C=1.0, penalty='l2', tol=1e-4, solver='liblinear', random_state=42)
+lr = LogisticRegression(C=1.0, penalty='l2', tol=1e-4, solver='liblinear', random_state=42,class_weight='balanced')
 lr.fit(X_train, y_train)
 y_pre = lr.predict(X_test)
 y_pro = lr.predict_proba(X_test)[:, 1]

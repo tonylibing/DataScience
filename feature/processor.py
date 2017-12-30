@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 import datetime
 import json
 import numbers
 import random
 import time
+import operator
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -18,13 +20,18 @@ from sklearn import metrics
 from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 from sklearn.feature_selection import SelectFromModel
-from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import normalize
+from sklearn.preprocessing import RobustScaler
 from sklearn.svm import LinearSVC
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
@@ -43,8 +50,9 @@ def ColumnInfo(df, col):
         col_type = 'time'
     elif col.endswith('_id'):
         col_type = 'id'
+        # col_type = 'categorical'
     elif col.startswith('dayOf') or col.startswith('hourOf') or ('category' in col) or ('level' in col) or (
-        'flag' in col):
+                'flag' in col) or ('version' in col):
         col_type = 'categorical'
     elif isinstance(uniq_vals[0], float):
         col_type = 'numerical'
@@ -60,35 +68,94 @@ def ColumnInfo(df, col):
         missing_vals = df[col].map(lambda x: int(x != x))
         missing_pct = sum(missing_vals) * 1.0 / df.shape[0]
 
-    return col, col_type, missing_pct
+    return col, col_type, df[col].dtype, missing_pct
 
 
 def ColumnSummary(df, label_col='label', id_cols=None):
     column_info = pd.DataFrame([(ColumnInfo(df, col)) for col in tqdm(df.columns.values, desc='Columns Info')])
-    column_info.columns = ['col_name', 'ColumnType', 'missing_pct']
+    column_info.columns = ['col_name', 'ColumnType', 'dtype', 'missing_pct']
     summary = df.describe(include='all').transpose()
     summary = summary.reset_index()
     # print(summary.columns)
     all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
     all.drop('col_name', axis=1)
-    all.to_csv('colummn_summary.csv', index=False, header=True)
+    # all.to_csv('colummn_summary.csv',index=False,header=True)
     return all
 
 
-class BaseFeatureProcessor:
-    def __init__(self, col_name, feature_type, params):
-        self.col_name = col_name
-        self.feature_type = feature_type
-        self.params = params
+class FeatureSelection(TransformerMixin):
+    def __init__(self):
+        self.column_type = None
+        self.variance_selector = VarianceThreshold()
+        # self.variance_selector = VarianceThreshold(threshold=.001)
+        self.scaler = RobustScaler()
+        # self.scaler = StandardScaler()
+        self.numerical_cols = []
+        self.categorical_cols = []
+        self.selected_cols = []
 
-    def persist(self):
-        pass
+    def fit(self, X, y):
+        print("before feature selection")
+        print(X.columns.values)
+        origin_features = set(X.columns.values)
+        print(len(X.columns.values))
+        # drop missing too much columns
+        self.column_summary = ColumnSummary(X)
+        self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
+        drop_cols = self.column_summary[self.column_summary['missing_pct'] > 0.99]['col_name']
 
-    def load(self):
-        pass
+        if len(drop_cols) > 0:
+            print("drop missing too much columns:{0}".format(drop_cols))
+            # df.drop(drop_cols,axis=0,inplace=True)
+
+        for col, col_type in self.column_type.items():
+            if col_type == 'numerical':
+                self.numerical_cols.append(col)
+            elif col_type == 'categorical':
+                self.categorical_cols.append(col)
+
+        # feature selection
+        print(self.numerical_cols)
+        print(self.categorical_cols)
+        df_cat = X[self.categorical_cols]
+        df_nonna = X[self.numerical_cols].dropna()
+        y_tmp = y[df_nonna.index]
+        # print(df_nonna.index.values)
+        # normalize numerical features
+        # df_norm = pd.DataFrame(normalize(df_nonna,axis=0),columns=self.numerical_cols)
+        df_norm = pd.DataFrame(self.scaler.fit_transform(df_nonna), columns=self.numerical_cols)
+        df_numerical = self.variance_selector.fit_transform(df_norm)
+        idxs_selected = self.variance_selector.get_support(indices=True)
+        print("variance threshold:")
+        print(df_nonna.columns[idxs_selected])
+        print(len(df_nonna.columns[idxs_selected]))
+        self.selected_cols = list(df_nonna.columns[idxs_selected]) + self.categorical_cols
+        # chi2
+        # df2 = df_nonna[df_nonna.columns[idxs_selected]]
+        # selector = SelectKBest(chi2, k=int(len(df2.columns)*0.95))
+        # df_numerical = selector.fit_transform(df2,y_tmp)
+        # idxs_selected = selector.get_support(indices=True)
+        # print("ch2 selection")
+        # print(df2.columns[idxs_selected])
+        # print(len(df2.columns[idxs_selected]))
+        #
+        # self.selected_cols=list(df2.columns[idxs_selected]) + self.categorical_cols
+        print("after feature selection")
+        print(self.selected_cols)
+        print(len(self.selected_cols))
+        print("dropped columns:")
+        print(origin_features - set(self.selected_cols))
+
+        return self
+
+    def transform(self, X):
+        return X[self.selected_cols]
+
+    def fit_transform(self, X, y):
+        return self.fit(X, y).transform(X)
 
 
-class FeatureProcessor(BaseEstimator):
+class FeatureEncoder(BaseEstimator):
     """
     1. drop missing columns according to missing percentage, filter outliers
     2. detect column type
@@ -99,47 +166,34 @@ class FeatureProcessor(BaseEstimator):
     7. to sparse feature matrix or dense
     """
 
-    def __init__(self, df, feature_processors=None, parallel=False):
-        self.df = df
-        self.column_summray = ColumnSummary(self.df)
-        self.column_type = self.column_summray.set_index('col_name')['ColumnType'].to_dict()
+    def __init__(self):
+        self.column_type = None
         self.feature_matrix = None
         self.feature_processors = []
-        if feature_processors:
-            self.feature_processors = feature_processors
-        else:
-            print('generate default feature processors')
-            if parallel:
-                numerical_cols = []
-                categorical_cols = []
-                for col, col_type in self.column_type.items():
-                    if col_type == 'numerical':
-                        numerical_cols.append(col)
-                        fp = ContinuousFeatureTransformer(col, col_type, {})
-                        self.feature_processors.append(fp)
-                    elif col_type == 'categorical':
-                        categorical_cols.append(col)
-                        fp = CategoricalFeatureTransformer(col, col_type, {})
-                        self.feature_processors.append(fp)
-            else:
-                numerical_cols = []
-                categorical_cols = []
-                for col, col_type in self.column_type.items():
-                    if col_type == 'numerical':
-                        numerical_cols.append(col)
-                        fp = ContinuousFeatureTransformer(col, col_type, {})
-                        self.feature_processors.append(fp)
-                    elif col_type == 'categorical':
-                        categorical_cols.append(col)
-                        fp = CategoricalFeatureTransformer(col, col_type, {})
-                        self.feature_processors.append(fp)
+        self.variance_selector = VarianceThreshold(threshold=.99 * (1 - .99))
+        self.scaler = StandardScaler()
+        self.feature_names = {}
+        self.numerical_cols = []
+        self.categorical_cols = []
+
+    def fit(self, df):
+        # column summary
+        self.column_summary = ColumnSummary(df)
+        self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
+
+        for col in df.columns.values:
+            if self.column_type[col] == 'numerical':
+                fp = ContinuousFeatureTransformer(col, self.column_type[col], {})
+                self.feature_processors.append(fp)
+            elif self.column_type[col] == 'categorical':
+                fp = CategoricalFeatureTransformer(col, self.column_type[col], {})
+                self.feature_processors.append(fp)
 
         print("=" * 60)
         for fp in self.feature_processors:
             print('col:{0},type:{1},params:{2}'.format(fp.col_name, fp.col_type, fp.params))
         print("=" * 60)
 
-    def fit(self, df):
         self.feature_offset = {}
         self.feature_name = []
         self.length = 0
@@ -149,12 +203,22 @@ class FeatureProcessor(BaseEstimator):
             self.feature_offset[fp.col_name] = self.length
             self.length += fp.dimension
 
+        # StandardScaler
+        # print("normalize numerical features:{0}".format(self.numerical_cols))
+        # self.scaler.fit(self.df[self.numerical_cols])
+        # df_numerical = self.scaler.transform(self.df[self.numerical_cols])
+        # self.df = pd.concat([self.df[self.categorical_cols],df_numerical],axis=1)
+
         print("=" * 60)
         print("feature_offset:{0}".format(self.feature_offset))
         print("=" * 60)
+
         return self
 
     def transform(self, df):
+        print("in transform")
+        print(len(df.columns.values))
+        print(ColumnSummary(df))
         for fp in self.feature_processors:
             fp.transform(df)
         df_tmp = df[self.feature_name]
@@ -165,15 +229,18 @@ class FeatureProcessor(BaseEstimator):
             for k, vv in enumerate(v):
                 fp = self.feature_processors[k]
                 if 'categorical' == fp.col_type:
-                    # print("vv:{0},col_name:{1},type:{2}".format(vv, fp.col_name, fp.col_type))
                     if pd.isnull(vv) == False:
                         data.append(1.0)
                         row_idx.append(i)
                         col_idx.append(int(vv) + self.feature_offset[fp.col_name])
+                        self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(vv)])] = int(vv) + \
+                                                                                                    self.feature_offset[
+                                                                                                        fp.col_name]
                 else:
                     data.append(vv)
                     row_idx.append(i)
                     col_idx.append(self.feature_offset[fp.col_name])
+                    self.feature_names[fp.col_name] = self.feature_offset[fp.col_name]
         data.append(0.0)
         row_idx.append(len(df_tmp) - 1)
         col_idx.append(self.length - 1)
@@ -192,18 +259,12 @@ class FeatureProcessor(BaseEstimator):
         pass
 
     def __str__(self):
-        return "\n".join(self.feature_processors)
-
-
-class ColumnExtractor(TransformerMixin):
-    def __init__(self, columns):
-        self.columns = columns
-
-    def fit(self, *_):
-        return self
-
-    def transform(self, X):
-        return X[self.columns]
+        ps = ['col:{0},type:{1},params:{2}'.format(fp.col_name, fp.col_type, fp.params) for fp in
+              self.feature_processors]
+        processors = "\n".join(ps)
+        sorted_x = sorted(self.feature_names.items(), key=operator.itemgetter(1))
+        info = processors + "\n" + json.dumps(sorted_x)
+        return info
 
 
 class OutliersFilter(TransformerMixin):
@@ -266,18 +327,43 @@ class OutliersFilter(TransformerMixin):
         return (data < minval) | (data > maxval)
 
 
+class MissingImputer(TransformerMixin):
+    def __init__(self):
+        """Impute missing values.
+
+        Columns of dtype object are imputed with the most frequent value
+        in column.
+
+        Columns of other types are imputed with mean of column.
+
+        """
+
+    def fit(self, X, y=None):
+        self.fill = pd.Series([X[c].value_counts().index[0]
+                               if X[c].dtype == np.dtype('O') else X[c].mean() for c in X],
+                              index=X.columns)
+
+        return self
+
+    def transform(self, X, y=None):
+        return X.fillna(self.fill, inplace=True)
+
+    def fit_transform(self, df, y=None):
+        return self.fit(df, y).transform(df, y)
+
+
 class ContinuousFeatureTransformer(TransformerMixin):
     def __init__(self, col_name, col_type, params):
         self.col_name = col_name
         self.col_type = col_type
         self.params = params
-        self.fillmethod = 'mean'
+        self.fillmethod = 'median'
         if 'fillmethod' in self.params:
             self.fillmethod = self.params['fillmethod']
 
     def fit(self, df):
         if self.fillmethod == 'value':
-            self.value = self.parameters['value']
+            self.value = self.params['value']
         elif self.fillmethod == 'mean':
             self.value = df[self.col_name].mean()
         elif self.fillmethod == 'median':
@@ -307,8 +393,14 @@ class CategoricalFeatureTransformer(TransformerMixin):
         self.params = params
         self.feature2id = {}
         self.id2feature = {}
+        # self.imputer = MissingImputer()
 
     def fit(self, df):
+        # fill missing value with mod
+        # mod_value = df[self.col_name].value_counts().index[0]
+        # print("{0} mod value:{1}".format(self.col_name,mod_value))
+        # df[self.col_name].fillna(mod_value,inplace=True)
+        # generate feature index mapping
         idx = 0
         self.feature2id = {}
         self.id2feature = {}
@@ -318,7 +410,6 @@ class CategoricalFeatureTransformer(TransformerMixin):
             idx += 1
 
         self.dimension = idx
-        # print("id2feature:{0}".format(self.id2feature))
         print("col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id))
         return self
 
@@ -824,35 +915,6 @@ class FlattenJsonTransformer(TransformerMixin):
         return self.fit(X).transform(X, columns)
 
 
-class VarianceSelector(TransformerMixin):
-    def __init__(self):
-        self.sel = VarianceThreshold(threshold=.08)
-
-    def fit(self, X):
-        return self
-
-    def transform(self, X):
-        X_sel = self.sel.fit_transform(X)
-        return X_sel
-
-    def fit_transform(self, X):
-        X_sel = self.sel.fit_transform(X)
-        return X_sel
-
-
-class Chi2KBestSelector(TransformerMixin):
-    def fit(self, X):
-        return self
-
-    def transform(self, X, y):
-        X_chi2 = SelectKBest(chi2, k=5).fit_transform(X, y)
-        return X_chi2
-
-    def fit_transform(self, X, y):
-        X_chi2 = SelectKBest(chi2, k=5).fit_transform(X, y)
-        return X_chi2
-
-
 class L1KBestSelector(TransformerMixin):
     def __init__(self):
         self.lsvc = LinearSVC(C=0.01, penalty="l1", dual=False)
@@ -921,278 +983,3 @@ class ReduceVIF(BaseEstimator, TransformerMixin):
         return X
 
 
-
-class XgboostLRClassifier(BaseEstimator):
-    def __init__(self,combine_feature = True,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
-        self.combine_feature = combine_feature
-        #gbdt model parameters
-        self.n_estimators=n_estimators
-        self.learning_rate=learning_rate
-        self.max_depth=max_depth
-        self.min_child_weight=min_child_weight
-        self.gamma=gamma
-        self.subsample=subsample
-        self.colsample_bytree=colsample_bytree
-        self.objective=objective
-        self.nthread=nthread
-        self.scale_pos_weight=scale_pos_weight
-        self.reg_alpha=reg_alpha
-        self.reg_lambda=reg_lambda
-        self.seed=seed
-        print("init gbdt model:{0}".format(n_estimators))
-        self.gbdt_model = xgb.XGBClassifier(
-               learning_rate =self.learning_rate,
-               n_estimators=self.n_estimators,
-               max_depth=self.max_depth,
-               min_child_weight=self.min_child_weight,
-               gamma=self.gamma,
-               subsample=self.subsample,
-               colsample_bytree=self.colsample_bytree,
-               objective= self.objective,
-               nthread=self.nthread,
-               scale_pos_weight=self.scale_pos_weight,
-               reg_alpha=self.reg_alpha,
-               reg_lambda=self.reg_lambda,
-               seed=self.seed)
-        #lr model parameters
-        self.lr_penalty = lr_penalty
-        self.lr_c = lr_c
-        self.lr_random_state = lr_random_state
-        print("init lr model")
-        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4,solver='liblinear',random_state=lr_random_state)
-        #numerical feature binner
-        self.one_hot_encoder = OneHotEncoder()
-        self.numerical_feature_processor = None
-
-    def gen_gbdt_features(self,pred_leaves,num_leaves=None):
-        if num_leaves is None:
-            num_leaves = np.amax(pred_leaves)
-
-        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        # return gbdt_feature_matrix
-        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
-        for i in range(0, len(pred_leaves)):
-            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
-            gbdt_feature_matrix[i][temp] += 1
-
-        print("pred_leaves:{0},gbdt_feature_matrix:{1},num_leaves:{2}".format(pred_leaves.shape,gbdt_feature_matrix.shape,num_leaves))
-
-        return gbdt_feature_matrix
-
-    def gen_gbdt_lr_features(self, origin_features, pred_leaves, num_leaves=None):
-        if num_leaves is None:
-            num_leaves = np.amax(pred_leaves)
-
-        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        # print("onehotencoder active_features:".format(self.one_hot_encoder.active_features_))
-
-        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
-        for i in range(0, len(pred_leaves)):
-            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
-            gbdt_feature_matrix[i][temp] += 1
-
-        print("orgin_features:{0},pred_leaves:{1},gbdt_feature_matrix:{2},num_leaves:{3}".format(origin_features.shape,
-                                                                                                 pred_leaves.shape,
-                                                                                                 gbdt_feature_matrix.shape,
-                                                                                                 num_leaves))
-        # print("orgin_features:{0},pred_leaves:{1}".format(type(origin_features),type(gbdt_feature_matrix)))
-        if isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, csr_matrix):
-            gbdt_lr_feature_matrix = sparse.hstack((origin_features, gbdt_feature_matrix), format='csr')
-            # gbdt_lr_feature_matrix = np.concatenate((origin_features,gbdt_feature_matrix),axis=1)
-        elif isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, np.ndarray):
-            gbdt_lr_feature_matrix = sparse.hstack((origin_features, csr_matrix(gbdt_feature_matrix)), format='csr')
-        elif isinstance(origin_features, np.ndarray) and isinstance(gbdt_feature_matrix, np.ndarray):
-            gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix), axis=1)
-        return gbdt_lr_feature_matrix
-
-    def fit_model_split(self, X_train, y_train, X_test, y_test):
-        ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
-        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=999)
-        self.gbdt_model.fit(X_train_1, y_train_1)
-        y_pre = self.gbdt_model.predict(X_train_2)
-        y_pro = self.gbdt_model.predict_proba(X_train_2)[:, 1]
-        print("pred_leaf=T AUC Score :{0}".format(metrics.roc_auc_score(y_train_2, y_pro)))
-        print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_train_2, y_pre)))
-        new_feature = self.gbdt_model.apply(X_train_2)
-        X_train_new2 = self.gen_gbdt_lr_features(X_train_2, new_feature) if self.combine_feature else self.gen_gbdt_features(new_feature)
-        new_feature_test = self.gbdt_model.apply(X_test)
-        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
-        print("Training set of sample size 0.4 fewer than before")
-        return X_train_new2, y_train_2, X_test_new, y_test
-
-    def fit_model(self, X_train, y_train, X_test, y_test):
-        self.gbdt_model.fit(X_train, y_train)
-        y_pre = self.gbdt_model.predict(X_test)
-        y_pro = self.gbdt_model.predict_proba(X_test)[:, 1]
-        print("pred_leaf=T  AUC Score: {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-        print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
-        new_feature = self.gbdt_model.apply(X_train)
-        X_train_new = self.gen_gbdt_lr_features(X_train, new_feature) if self.combine_feature else self.gen_gbdt_features(new_feature)
-        new_feature_test = self.gbdt_model.apply(X_test)
-        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
-        print("Training set sample number remains the same")
-        return X_train_new, y_train, X_test_new, y_test
-
-    def fit(self, X, y):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
-        # generate new feature with partial data
-        X_train2, y_train2, X_test2, y_test2 = self.fit_model(X_train, y_train, X_test, y_test)
-        self.lr_model.fit(X_train2, y_train2)
-        y_pre = self.lr_model.predict(X_test2)
-        y_pro = self.lr_model.predict_proba(X_test2)[:, 1]
-        print("Xgboost+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
-        print("Xgboost+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
-        return self
-
-    def transform(self, X):
-        new_feature_test = self.gbdt_model.apply(X)
-        X_test_new = self.gen_gbdt_lr_features(X, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
-        return X_test_new
-
-    def predict(self, X):
-        test1 = self.transform(X)
-        return self.lr_model.predict(test1)
-
-    def predict_proba(self, X):
-        test1 = self.transform(X)
-        return self.lr_model.predict_proba(test1)
-
-class LightgbmLRClassifier(BaseEstimator):
-    def __init__(self, combine_feature = True,n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3,
-                 subsample=0.7, colsample_bytree=0.7, objective='binary:logistic', nthread=-1, scale_pos_weight=1,
-                 reg_alpha=1e-05, reg_lambda=1, seed=27, lr_penalty='l2', lr_c=1.0, lr_random_state=42):
-        self.combine_feature = combine_feature
-        # gbdt model parameters
-        self.n_estimators = n_estimators
-        self.learning_rate = learning_rate
-        self.max_depth = max_depth
-        self.min_child_weight = min_child_weight
-        self.gamma = gamma
-        self.subsample = subsample
-        self.colsample_bytree = colsample_bytree
-        self.objective = objective
-        self.nthread = nthread
-        self.scale_pos_weight = scale_pos_weight
-        self.reg_alpha = reg_alpha
-        self.reg_lambda = reg_lambda
-        self.seed = seed
-        print("init gbdt model:{0}".format(n_estimators))
-        # self.gbdt_model = lgb.LGBMClassifier(
-        #     learning_rate=self.learning_rate,
-        #     n_estimators=self.n_estimators,
-        #     max_depth=self.max_depth,
-        #     min_child_weight=self.min_child_weight,
-        #     gamma=self.gamma,
-        #     subsample=self.subsample,
-        #     colsample_bytree=self.colsample_bytree,
-        #     objective=self.objective,
-        #     nthread=self.nthread,
-        #     scale_pos_weight=self.scale_pos_weight,
-        #     reg_alpha=self.reg_alpha,
-        #     reg_lambda=self.reg_lambda,
-        #     seed=self.seed)
-        self.gbdt_model = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=3, learning_rate=0.3, n_estimators=30, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
-        # lr model parameters
-        self.lr_penalty = lr_penalty
-        self.lr_c = lr_c
-        self.lr_random_state = lr_random_state
-        print("init lr model")
-        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',
-                                           random_state=lr_random_state)
-        # numerical feature binner
-        self.one_hot_encoder = OneHotEncoder()
-        self.numerical_feature_processor = None
-
-    def gen_gbdt_features(self, pred_leaves, num_leaves=None):
-        if num_leaves is None:
-            num_leaves = np.amax(pred_leaves)
-
-        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        # return gbdt_feature_matrix
-        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
-        for i in range(0, len(pred_leaves)):
-            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
-            gbdt_feature_matrix[i][temp] += 1
-
-        print(
-        "pred_leaves:{0},gbdt_feature_matrix:{1},num_leaves:{2}".format(pred_leaves.shape, gbdt_feature_matrix.shape,
-                                                                        num_leaves))
-        return gbdt_feature_matrix
-
-    def gen_gbdt_lr_features(self, origin_features, pred_leaves, num_leaves=None):
-        if num_leaves is None:
-            num_leaves = np.amax(pred_leaves)
-
-        # gbdt_feature_matrix = self.one_hot_encoder.fit_transform(pred_leaves)
-        # print("onehotencoder active_features:".format(self.one_hot_encoder.active_features_))
-
-        gbdt_feature_matrix = np.zeros([len(pred_leaves), len(pred_leaves[0]) * num_leaves], dtype=np.int64)
-        for i in range(0, len(pred_leaves)):
-            temp = np.arange(len(pred_leaves[0])) * num_leaves - 1 + np.array(pred_leaves[i])
-            gbdt_feature_matrix[i][temp] += 1
-
-        print("orgin_features:{0},pred_leaves:{1},gbdt_feature_matrix:{2},num_leaves:{3}".format(origin_features.shape,
-                                                                                                 pred_leaves.shape,
-                                                                                                 gbdt_feature_matrix.shape,
-                                                                                                 num_leaves))
-        # print("orgin_features:{0},pred_leaves:{1}".format(type(origin_features),type(gbdt_feature_matrix)))
-        if isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, csr_matrix):
-            gbdt_lr_feature_matrix = sparse.hstack((origin_features,gbdt_feature_matrix),format='csr')
-            # gbdt_lr_feature_matrix = np.concatenate((origin_features,gbdt_feature_matrix),axis=1)
-        elif isinstance(origin_features, csr_matrix) and isinstance(gbdt_feature_matrix, np.ndarray):
-            gbdt_lr_feature_matrix = sparse.hstack((origin_features,csr_matrix(gbdt_feature_matrix)),format='csr')
-        elif isinstance(origin_features, np.ndarray) and isinstance(gbdt_feature_matrix, np.ndarray):
-            gbdt_lr_feature_matrix = np.concatenate((origin_features, gbdt_feature_matrix), axis=1)
-        return gbdt_lr_feature_matrix
-
-    def fit_model_split(self, X_train, y_train, X_test, y_test):
-        ##X_train_1用于生成模型  X_train_2用于和新特征组成新训练集合
-        X_train_1, X_train_2, y_train_1, y_train_2 = train_test_split(X_train, y_train, test_size=0.6, random_state=999)
-        self.gbdt_model.fit(X_train_1, y_train_1)
-        y_pre = self.gbdt_model.predict(X_train_2)
-        y_pro = self.gbdt_model.predict_proba(X_train_2)[:, 1]
-        print("pred_leaf=T AUC Score :{0}".format(metrics.roc_auc_score(y_train_2, y_pro)))
-        print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_train_2, y_pre)))
-        new_feature = self.gbdt_model.apply(X_train_2)
-        X_train_new2 = self.gen_gbdt_lr_features(X_train_2, new_feature) if self.combine_feature else self.gen_gbdt_features(new_feature)
-        new_feature_test = self.gbdt_model.apply(X_test)
-        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
-        print("Training set of sample size 0.4 fewer than before")
-        return X_train_new2, y_train_2, X_test_new, y_test
-
-    def fit_model(self, X_train, y_train, X_test, y_test):
-        self.gbdt_model.fit(X_train, y_train)
-        y_pre = self.gbdt_model.predict(X_test)
-        y_pro = self.gbdt_model.predict_proba(X_test)[:, 1]
-        print("pred_leaf=T  AUC Score: {0}".format(metrics.roc_auc_score(y_test, y_pro)))
-        print("pred_leaf=T  Accuracy : {0}".format(metrics.accuracy_score(y_test, y_pre)))
-        new_feature = self.gbdt_model.apply(X_train)
-        X_train_new = self.gen_gbdt_lr_features(X_train, new_feature) if self.combine_feature else self.gen_gbdt_features(new_feature)
-        new_feature_test = self.gbdt_model.apply(X_test)
-        X_test_new = self.gen_gbdt_lr_features(X_test, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
-        print("Training set sample number remains the same")
-        return X_train_new, y_train, X_test_new, y_test
-
-    def fit(self, X, y):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
-        # generate new feature with partial data
-        X_train2, y_train2, X_test2, y_test2 = self.fit_model(X_train, y_train, X_test, y_test)
-        self.lr_model.fit(X_train2, y_train2)
-        y_pre = self.lr_model.predict(X_test2)
-        y_pro = self.lr_model.predict_proba(X_test2)[:, 1]
-        print("Lightgbm+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
-        print("Lightgbm+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
-        return self
-
-    def transform(self, X):
-        new_feature_test = self.gbdt_model.apply(X)
-        X_test_new = self.gen_gbdt_lr_features(X, new_feature_test) if self.combine_feature else self.gen_gbdt_features(new_feature_test)
-        return X_test_new
-
-    def predict(self, X):
-        test1 = self.transform(X)
-        return self.lr_model.predict(test1)
-
-    def predict_proba(self, X):
-        test1 = self.transform(X)
-        return self.lr_model.predict_proba(test1)

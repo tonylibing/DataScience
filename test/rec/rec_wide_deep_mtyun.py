@@ -5,13 +5,14 @@ import processor
 import argparse
 import os
 import sys
+sys.path.append("../..")
 import scipy
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, recall_score, precision_score, f1_score, roc_auc_score, \
     average_precision_score
-from metrics import ks_statistic
+from eval.metrics import ks_statistic
 import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
@@ -20,10 +21,10 @@ import torch
 import os.path
 
 from importlib import reload
-import processor
+import feature.processor
 
-reload(processor)
-from processor import *
+reload(feature.processor)
+from feature.processor import *
 
 import torch_model
 
