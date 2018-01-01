@@ -35,6 +35,10 @@ if sampling_flag:
         print(data.columns)
         y = data['invest']
         data['ratio'] = data['total_balance']*1.0/(data['product_price']+1.0)
+        # data['total_balance'] = np.log(data['total_balance']+1.0)
+        # data['curr_aum_amt'] = np.log(data['curr_aum_amt']+1.0)
+        # data['highest_asset_amt'] = np.log(data['highest_asset_amt']+1.0)
+        # data['ratio2'] = data['percent_inv_amt2']*1.0/(data['product_price']+1.0)
         # data['sub_interest_rate']=data['interest_rate']-0.04
         X = data.drop(['invest', 'user_group', 'app_version', 'transfer_flag'], axis=1)
     else:
