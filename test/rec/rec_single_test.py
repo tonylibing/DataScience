@@ -3,22 +3,25 @@ import numpy as np
 import scipy
 import gc
 import sys
+sys.path.append("../..")
 import os
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 import xgboost as xgb
-import processor
+import feature.processor
 from importlib import reload
-reload(processor)
-from processor import *
+
+reload(feature.processor)
+from feature.processor import *
 from imblearn.ensemble import EasyEnsemble
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score,accuracy_score,average_precision_score
-from metrics import ks_statistic
+from eval.metrics import ks_statistic
 import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
+from model.GBDTLRClassifier import *
 
 sampling_flag = True
 if sampling_flag:

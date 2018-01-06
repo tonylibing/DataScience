@@ -41,7 +41,7 @@ bdw_user_profile = pd.read_csv(dir_prefix +"/dataset/bdw_crm_user_profile.csv",s
 
 up = pd.merge(pref,bdw_user_profile,on='user_id',how='left')
 
-products =pd.read_csv(dir_prefix +"/dataset/online_products.csv",sep=',')
+products =pd.read_csv(dir_prefix +"/dataset/online_products22.csv",sep=',')
 products['invest_period_by_days'].fillna(0,inplace=True)
 # products=products[products['interest_rate']]
 

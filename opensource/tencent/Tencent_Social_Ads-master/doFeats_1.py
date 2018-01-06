@@ -11,7 +11,7 @@ import scipy.special as special
 # iapath='C:\\final\\temp\\installedactions\\'
 
 rawpath = '/home/tanglek/workspace/DataScience/data/tencent_ad/first/'
-temppath='/home/tanglek/workspace/DataScience/data/tencent_ad/firsttemp/'
+temppath='/home/tanglek/workspace/DataScience/data/tencent_ad/first/temp/'
 iapath='/home/tanglek/workspace/DataScience/data/tencent_ad/first/temp/installedactions/'
 
 

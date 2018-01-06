@@ -26,15 +26,15 @@ import feature.processor
 reload(feature.processor)
 from feature.processor import *
 
-import torch_model
+import model.wide_deep.torch_model
 
-reload(torch_model)
-from torch_model import WideDeep
+reload(model.wide_deep.torch_model)
+from model.wide_deep.torch_model import WideDeep
 
-import data_utils
+import model.wide_deep.data_utils
 
-reload(data_utils)
-from data_utils import prepare_data
+reload(model.wide_deep.data_utils)
+from model.wide_deep.data_utils import prepare_data
 
 FLAGS = None
 
