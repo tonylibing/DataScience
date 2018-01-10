@@ -6,6 +6,7 @@ import sys
 sys.path.append("../..")
 import os
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import QuantileTransformer
 from sklearn import metrics
 import xgboost as xgb
 import feature.processor
@@ -108,8 +109,11 @@ print(str(bfp))
 idx2featurename = dict((y, x) for x, y in bfp.feature_names.items())
 
 print("feature_matrix shape:{0}".format(feature_matrix.shape))
-# scaler = StandardScaler(with_mean=False)
+# scaler = StandardScaler(with_mean=False)//auc 0.85,without 0.82
 # feature_matrix = scaler.fit_transform(feature_matrix)
+# scaler = QuantileTransformer(random_state=999) //auc 0.85,without 0.82
+# feature_matrix = scaler.fit_transform(feature_matrix)
+
 
 X_train, X_test, y_train, y_test = train_test_split(feature_matrix, y, test_size=0.3, random_state=999, stratify=y)
 print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))

@@ -22,6 +22,7 @@ import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
 from model.GBDTLRClassifier import *
+import joblib
 
 sampling_flag = True
 if sampling_flag:
@@ -128,6 +129,14 @@ df.to_csv("~/dataset/lr_y_test_pro.csv",index=False,header=True)
 
 gbm = xgb.XGBClassifier(n_estimators=30,learning_rate =0.3,max_depth=4,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight = scale_pos_weight,reg_alpha=1e-05,reg_lambda=1,seed=27)
 gbm.fit(X_train,y_train)
+# save model
+# iris_mapper = sklearn_pandas.DataFrameMapper([
+#     (["sepal_length", "sepal_width", "petal_length", "petal_width"], None),
+#     ("Species", None)
+# ])
+#
+# joblib.dump(iris_mapper, 'mapper.pkl')
+
 y_pre= gbm.predict(X_test)
 # y_pre_leaf = gbm.predict(X_test,pred_leaf=True)
 # print(y_pre_leaf.shape)
@@ -149,6 +158,7 @@ df.to_csv("~/dataset/xgb_y_test_pro.csv",index=False,header=True)
 
 lgbm = lgb.LGBMClassifier(boosting_type='gbdt',  max_depth=4, learning_rate=0.3, n_estimators=30,scale_pos_weight = scale_pos_weight, min_child_weight=1,subsample=0.7,  colsample_bytree=0.7, reg_alpha=1e-05, reg_lambda=1)
 lgbm.fit(X_train,y_train)
+lgbm.booster_.save_model("serve/lightgbm.txt")
 y_pre= lgbm.predict(X_test)
 y_pro= lgbm.predict_proba(X_test)[:,1]
 

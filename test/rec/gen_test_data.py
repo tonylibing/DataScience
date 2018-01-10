@@ -40,8 +40,8 @@ pref.drop(['recent_invest','recent_invest', 'recent_browse', 'category_preferenc
 bdw_user_profile = pd.read_csv(dir_prefix +"/dataset/bdw_crm_user_profile.csv",sep=',')
 
 up = pd.merge(pref,bdw_user_profile,on='user_id',how='left')
-
-products =pd.read_csv(dir_prefix +"/dataset/online_products22.csv",sep=',')
+up.to_csv(dir_prefix +"/dataset/up.csv",index=False)
+products =pd.read_csv(dir_prefix +"/dataset/online_products_ai.csv",sep=',')
 products['invest_period_by_days'].fillna(0,inplace=True)
 # products=products[products['interest_rate']]
 
@@ -72,4 +72,8 @@ df = df_crossjoin(up,products)
 
 df.to_csv(dir_prefix +"/dataset/user_profile_products.csv",index=False,header=True)
 df2=df[df['user_id']==876553]
+df2.to_csv(dir_prefix +"/dataset/user_profile_products1.csv",index=False,header=True)
+df2=df[df['user_id']==589107]
 df2.to_csv(dir_prefix +"/dataset/user_profile_products2.csv",index=False,header=True)
+df2=df[df['user_id']==657779]
+df2.to_csv(dir_prefix +"/dataset/user_profile_products3.csv",index=False,header=True)

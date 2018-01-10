@@ -1,19 +1,13 @@
 import sys
-sys.path.append("../..")
-import feature.processor
-from importlib import reload
-
-reload(feature.processor)
-from feature.processor import *
-
 import hashlib
 import json
 import os
 import shutil
 import sys
 import numpy as np
+import pandas as pd
 import tensorflow as tf
-
+import argparse
 from sklearn.model_selection import ParameterSampler
 
 from spotlight.cross_validation import user_based_train_test_split
@@ -280,17 +274,40 @@ def run(train, test, validation, random_state, model_type,opts):
     return results
 
 
-if __name__ == '__main__':
+def main(_):
+    args_in = sys.argv[1:]
+    print(args_in)
+    parser = argparse.ArgumentParser()
+    mtyunArgs = parser.add_argument_group('美团云选项')
+    mtyunArgs.add_argument('--data_dir', type=str, default='',
+                           help='input data path')
+    mtyunArgs.add_argument('--model_dir', type=str, default='',help='output model path')
+    mtyunArgs.add_argument('--model_type', type=str, default='',help='model type')
+    mtyunArgs.add_argument('--tf_fs', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--tf_prefix', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--default_fs', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--worker_num', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--num_gpus', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--num_ps', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--num_worker', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--tensorboard_dir', type=str, default='', help='output model path')
+    mtyunArgs.add_argument('--tb_dir', type=str, default='local_tensorbord_dir_0', help='output model path')
+    FLAGS, _ = parser.parse_known_args()
+    print('FLAGS')
+    print(FLAGS)
+    opts = parser.parse_args(args_in)
     # http://www.pkbigdata.com/common/cmpt/CCF%E5%A4%A7%E6%95%B0%E6%8D%AE%E7%AB%9E%E8%B5%9B_%E8%B5%9B%E4%BD%93%E4%B8%8E%E6%95%B0%E6%8D%AE.html?lang=en_US
     # 用户编号	新闻编号	浏览时间	新闻标题	新闻详细内容	新闻发表时间
     # data = pd.read_csv("E:/dataset/ccf_news_rec/train.txt",sep='\t',header=None)
-    data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
+    with tf.gfile.FastGFile(os.path.join(opts.data_dir, "train.txt"), 'rb') as gf:
+        data = pd.read_csv(gf, sep='\t', header=None)
     data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
     # test = pd.read_csv("E:/dataset/ccf_news_rec/test.csv",sep=',')
-    test = pd.read_csv("~/dataset/ccf_news_rec/test.csv", sep=',')
+    with tf.gfile.FastGFile(os.path.join(opts.data_dir, "test.csv"), 'rb') as gf:
+        test = pd.read_csv(gf, sep=',')
 
-    cs = ColumnSummary(data[['user_id', 'news_id', 'browse_time', 'published_at']])
-    print(cs)
+    # cs = ColumnSummary(data[['user_id', 'news_id', 'browse_time', 'published_at']])
+    # print(cs)
 
     max_sequence_length = 200
     min_sequence_length = 20
@@ -317,7 +334,9 @@ if __name__ == '__main__':
                                         min_sequence_length=min_sequence_length,
                                         step_size=step_size)
 
-    mode = sys.argv[1]
+    mode = opts.model_type
 
-    run(train, test, validation, random_state, mode)
+    run(train, test, validation, random_state, mode,opts)
 
+if __name__ == '__main__':
+    tf.app.run(main=main)

@@ -1,0 +1,1 @@
+java -jar /home/tanglek/opensource/jpmml-lightgbm/target/converter-executable-1.1-SNAPSHOT.jar --lgbm-input lightgbm.txt --pmml-output lightgbm.pmml
