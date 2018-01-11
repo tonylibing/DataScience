@@ -23,7 +23,7 @@ NUM_SAMPLES = 100
 
 LEARNING_RATES = [1e-3, 1e-2, 5 * 1e-2, 1e-1]
 LOSSES = ['bpr', 'hinge', 'adaptive_hinge', 'pointwise']
-BATCH_SIZE = [8, 16, 32, 256]
+BATCH_SIZE = [8, 16, 32]
 EMBEDDING_DIM = [8, 16, 32, 64, 128, 256]
 N_ITER = list(range(5, 20))
 L2 = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.0]
@@ -35,7 +35,8 @@ class Results:
 
         self._filename = filename
 
-        # open(self._filename, 'a+')
+        with tf.gfile.FastGFile(self._filename, 'a+') as out:
+            pass
 
     def _hash(self, x):
 
@@ -232,7 +233,7 @@ def evaluate_pooling_model(hyperparameters, train, test, validation, random_stat
 
 
 def run(train, test, validation, random_state, model_type,opts):
-    fname = os.path.join(opts.data_dir,'data','{0}_results.txt'.format(model_type))
+    fname = os.path.join(opts.data_dir,'{0}_results.txt'.format(model_type))
     results = Results(fname)
 
     best_result = results.best()
@@ -314,11 +315,18 @@ def main(_):
     step_size = 200
     random_state = np.random.RandomState(100)
 
-    dataset = Interactions(user_ids=data['user_id'].values.astype(np.int32),
-                           item_ids=data['news_id'].values.astype(np.int32),
+    userid2idx = {userid:idx+1 for idx,userid in enumerate(data['user_id'].unique().tolist())}
+    idx2userid = {idx+1:userid for idx,userid in enumerate(data['user_id'].unique().tolist())}
+    newsid2idx = {newsid:idx+1 for idx,newsid in enumerate(data['news_id'].unique().tolist())}
+    idx2newsid = {idx+1:newsid for idx,newsid in enumerate(data['news_id'].unique().tolist())}
+
+    data['user_ids']=data['user_id'].apply(lambda x:userid2idx[x]).astype(np.int32)
+    data['item_ids']=data['news_id'].apply(lambda x:newsid2idx[x]).astype(np.int32)
+
+    dataset = Interactions(user_ids=data['user_ids'].values,
+                           item_ids=data['item_ids'].values,
                            timestamps=data['browse_time'].values.astype(np.int32))
-    # dataset = Interactions(user_ids=data['user_id'].values.astype(np.int32),
-    #                        item_ids=data['news_id'].values.astype(np.int32))
+
     train, rest = user_based_train_test_split(dataset,
                                               random_state=random_state)
     test, validation = user_based_train_test_split(rest,

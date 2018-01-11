@@ -12,6 +12,7 @@ import os
 import shutil
 import sys
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 from sklearn.model_selection import ParameterSampler
@@ -21,7 +22,7 @@ from spotlight.sequence.implicit import ImplicitSequenceModel
 from spotlight.sequence.representations import CNNNet
 from spotlight.evaluation import sequence_mrr_score
 from spotlight.interactions import Interactions
-
+from spotlight.evaluation import precision_recall_score
 # CUDA = (os.environ.get('CUDA') is not None or
 #         shutil.which('nvidia-smi') is not None)
 CUDA=True
@@ -41,7 +42,7 @@ class Results:
 
         self._filename = filename
 
-        # open(self._filename, 'a+')
+        open(self._filename, 'a+')
 
     def _hash(self, x):
 
@@ -192,7 +193,7 @@ def evaluate_cnn_model(hyperparameters, train, test, validation, random_state):
     test_mrr = sequence_mrr_score(model, test)
     val_mrr = sequence_mrr_score(model, validation)
 
-    return test_mrr, val_mrr
+    return model,test_mrr,val_mrr
 
 
 def evaluate_lstm_model(hyperparameters, train, test, validation, random_state):
@@ -213,7 +214,7 @@ def evaluate_lstm_model(hyperparameters, train, test, validation, random_state):
     test_mrr = sequence_mrr_score(model, test)
     val_mrr = sequence_mrr_score(model, validation)
 
-    return test_mrr, val_mrr
+    return model,test_mrr, val_mrr
 
 
 def evaluate_pooling_model(hyperparameters, train, test, validation, random_state):
@@ -234,12 +235,13 @@ def evaluate_pooling_model(hyperparameters, train, test, validation, random_stat
     test_mrr = sequence_mrr_score(model, test)
     val_mrr = sequence_mrr_score(model, validation)
 
-    return test_mrr, val_mrr
+    return model,test_mrr, val_mrr
 
 
-def run(train, test, validation, random_state, model_type,opts):
-    fname = os.path.join(opts.data_dir,'data','{0}_results.txt'.format(model_type))
-    results = Results(fname)
+# precision, recall = precision_recall_score(model, test, train, k=k)
+
+def run(train, test, validation, random_state, model_type):
+    results = Results('{}_results.txt'.format(model_type))
 
     best_result = results.best()
 
@@ -258,6 +260,9 @@ def run(train, test, validation, random_state, model_type,opts):
     if best_result is not None:
         print('Best {} result: {}'.format(model_type, results.best()))
 
+    best_mrr = 9999.0
+    best_model = None
+
     for hyperparameters in sample_fnc(random_state, NUM_SAMPLES):
 
         if hyperparameters in results:
@@ -265,7 +270,7 @@ def run(train, test, validation, random_state, model_type,opts):
 
         print('Evaluating {}'.format(hyperparameters))
 
-        (test_mrr, val_mrr) = eval_fnc(hyperparameters,
+        (model,test_mrr, val_mrr) = eval_fnc(hyperparameters,
                                        train,
                                        test,
                                        validation,
@@ -274,10 +279,12 @@ def run(train, test, validation, random_state, model_type,opts):
         print('Test MRR {} val MRR {}'.format(
             test_mrr.mean(), val_mrr.mean()
         ))
-
         results.save(hyperparameters, test_mrr.mean(), val_mrr.mean())
+        if test_mrr.mean()<best_mrr:
+            best_mrr = test_mrr.mean()
+            best_model = model
 
-    return results
+    return best_model
 
 
 if __name__ == '__main__':
@@ -287,7 +294,7 @@ if __name__ == '__main__':
     data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
     data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
     # test = pd.read_csv("E:/dataset/ccf_news_rec/test.csv",sep=',')
-    test = pd.read_csv("~/dataset/ccf_news_rec/test.csv", sep=',')
+    # test = pd.read_csv("~/dataset/ccf_news_rec/test.csv", sep=',')
 
     cs = ColumnSummary(data[['user_id', 'news_id', 'browse_time', 'published_at']])
     print(cs)
@@ -297,11 +304,18 @@ if __name__ == '__main__':
     step_size = 200
     random_state = np.random.RandomState(100)
 
-    dataset = Interactions(user_ids=data['user_id'].values.astype(np.int32),
-                           item_ids=data['news_id'].values.astype(np.int32),
+    userid2idx = {userid:idx+1 for idx,userid in enumerate(data['user_id'].unique().tolist())}
+    idx2userid = {idx+1:userid for idx,userid in enumerate(data['user_id'].unique().tolist())}
+    newsid2idx = {newsid:idx+1 for idx,newsid in enumerate(data['news_id'].unique().tolist())}
+    idx2newsid = {idx+1:newsid for idx,newsid in enumerate(data['news_id'].unique().tolist())}
+
+    data['user_ids']=data['user_id'].apply(lambda x:userid2idx[x]).astype(np.int32)
+    data['item_ids']=data['news_id'].apply(lambda x:newsid2idx[x]).astype(np.int32)
+
+    dataset = Interactions(user_ids=data['user_ids'].values,
+                           item_ids=data['item_ids'].values,
                            timestamps=data['browse_time'].values.astype(np.int32))
-    # dataset = Interactions(user_ids=data['user_id'].values.astype(np.int32),
-    #                        item_ids=data['news_id'].values.astype(np.int32))
+
     train, rest = user_based_train_test_split(dataset,
                                               random_state=random_state)
     test, validation = user_based_train_test_split(rest,
@@ -319,5 +333,27 @@ if __name__ == '__main__':
 
     mode = sys.argv[1]
 
-    run(train, test, validation, random_state, mode)
+    best_model = run(train, test, validation, random_state, mode)
+
+    # test = pd.read_csv("~/dataset/ccf_news_rec/test.csv", sep=',')
+
+    pred = best_model.predict(test)
+    print("pred:{}".format(pred))
+
+    # for user_id, row in enumerate(test):
+    #
+    #     if not len(row.indices):
+    #         continue
+    #
+    #     predictions = -model.predict(user_id)
+    #
+    #     if train is not None:
+    #         rated = train[user_id].indices
+    #         predictions[rated] = FLOAT_MAX
+    #
+    #     predictions = predictions.argsort()
+
+
+
+
 
