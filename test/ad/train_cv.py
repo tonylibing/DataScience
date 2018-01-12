@@ -58,11 +58,11 @@ def main(_):
     data_dir = opts.data_dir
 
     t_start = datetime.datetime.now()
-    with tf.gfile.FastGFile(os.path.join(data_dir, temppath, '2_smooth.csv'), 'rb') as gf:
+    with tf.gfile.FastGFile(os.path.join(data_dir, iapath, '2_smooth.csv'), 'rb') as gf:
         X_loc_train = pd.read_csv(gf)
         print('load train over...')
 
-    with tf.gfile.FastGFile(os.path.join(data_dir, temppath, '2_test_smooth.csv'), 'rb') as gf:
+    with tf.gfile.FastGFile(os.path.join(data_dir, iapath, '2_test_smooth.csv'), 'rb') as gf:
         X_loc_test = pd.read_csv(gf)
         print('load test over...')
 
@@ -103,7 +103,11 @@ def main(_):
     for i, (train, test) in enumerate(skf):
         print("Fold", i)
         model.fit(X_loc_train[train], y_loc_train[train], eval_metric='logloss',eval_set=[(X_loc_train[train], y_loc_train[train]), (X_loc_train[test], y_loc_train[test])],early_stopping_rounds=100)
-        preds= model.predict_proba(X_loc_test, num_iteration=model.best_iteration)[:, 1]
+        if model.hasattr('best_iteration'):
+            preds= model.predict_proba(X_loc_test, num_iteration=model.best_iteration)[:, 1]
+        else:
+            preds= model.predict_proba(X_loc_test)[:, 1]
+
         print('mean:', preds.mean())
         res['prob_%s' % str(i)] = preds
 
