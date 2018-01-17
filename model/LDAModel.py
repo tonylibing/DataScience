@@ -124,8 +124,8 @@ class ChnTfidfLDAModel():
     # http://radimrehurek.com/topic_modeling_tutorial/2%20-%20Topic%20Modeling.html
     def intra_inter_tfidf(self,lda_model, dictionary, test_docs, num_pairs=10000):
         # Split each test document into two halves and compute topics for each half
-        part1 = [lda_model[self.tfidf[dictionary.doc2bow(tokens[:int(len(tokens) / 2)])]] for tokens in test_docs]
-        part2 = [lda_model[self.tfidf[dictionary.doc2bow(tokens[int(len(tokens) / 2):])]] for tokens in test_docs]
+        part1 = [lda_model[self.tfidf[dictionary.doc2bow(tokens[:int(len(list(tokens)) / 2)])]] for tokens in test_docs]
+        part2 = [lda_model[self.tfidf[dictionary.doc2bow(tokens[int(len(list(tokens)) / 2):])]] for tokens in test_docs]
         # Compute topic distribution similarities using cosine similarity
         # print("Average cosine similarity between corresponding parts (higher is better):")
         corresp_parts = np.mean([gensim.matutils.cossim(p1, p2) for p1, p2 in zip(part1, part2)])
@@ -171,8 +171,6 @@ class ChnTfidfLDAModel():
         self.tfidf = models.TfidfModel(corpus)
         corpus_tfidf = self.tfidf[corpus]
         print(corpus_tfidf)
-
-
         for i in tqdm(self.topicnums, desc='num of topics'):
             random.seed(42)
             self.ldamodels_tfidf[i] = models.ldamodel.LdaModel(corpus_tfidf, num_topics=i, id2word=dictionary)
