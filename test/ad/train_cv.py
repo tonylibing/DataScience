@@ -103,7 +103,7 @@ def main(_):
     for i, (train, test) in enumerate(skf):
         print("Fold", i)
         model.fit(X_loc_train[train], y_loc_train[train], eval_metric='logloss',eval_set=[(X_loc_train[train], y_loc_train[train]), (X_loc_train[test], y_loc_train[test])],early_stopping_rounds=100)
-        if model.hasattr('best_iteration'):
+        if hasattr(model,'best_iteration'):
             preds= model.predict_proba(X_loc_test, num_iteration=model.best_iteration)[:, 1]
         else:
             preds= model.predict_proba(X_loc_test)[:, 1]
