@@ -1,5 +1,6 @@
 import codecs
 import os
+import re
 import pickle
 import random
 from pprint import pprint
@@ -48,8 +49,20 @@ class WordSeg():
         if user_dict is not None:
             jieba.load_userdict(user_dict)
 
+    def remove_illegal(self,input):
+        line = input.strip().replace("<br>", "")
+        line, _ = re.subn('【', '', line)
+        line, _ = re.subn('】', '', line)
+        line, _ = re.subn(r'/:[a-z]+', '', line)
+        line, _ = re.subn(r'%[0-9A-Z]+', '', line)
+        line, _ = re.subn(r' +', ' ', line)
+        line, _ = re.subn(r'nan', '', line)
+        line, _ = re.subn("[\s+\.\!\/_,$%^*(+\"\']+|[+——！，。？、~@#￥%……&*（）：]+",' ',line)
+        return line
+
     def seg_stopword_sentence(self,sentence):
-        return jieba.cut(sentence)
+        line = self.remove_illegal(sentence)
+        return list(jieba.cut(line))
 
     def cut_df(self,df,col='content'):
         return df[col].apply(self.seg_stopword_sentence)
@@ -59,9 +72,8 @@ class WordSeg():
 
 
 class LDA_by_sklearn():
-    def __init__(self, source, school):
-        self.file_path = os.getcwd() + '\\data\\cutted\\' + source + '\\' + school
-        self.stopwords = codecs.open(os.getcwd() + '\\data\\stopwords.txt', 'r', encoding='utf-8')
+    def __init__(self, stopwords_path = '',texts=None):
+        self.stopwords = codecs.open(stopwords_path, 'r', encoding='utf-8')
         self.stopwords = [w.strip() for w in self.stopwords]
 
         self.lda = None
@@ -69,16 +81,11 @@ class LDA_by_sklearn():
 
     def run_lda(self, n_topics=5):
         self.tf_vectorizer = CountVectorizer(strip_accents='unicode', stop_words=self.stopwords)
-
-        tf = self.tf_vectorizer.fit_transform(open(self.file_path, 'r', encoding='utf-8'))
-
-        self.lda = LatentDirichletAllocation(n_topics=n_topics, max_iter=50, \
-                                             learning_method='online', learning_offset=50, random_state=0)
+        tf = self.tf_vectorizer.fit_transform(open("/home/tanglek/dataset/corpus_seg_100k.txt", 'r', encoding='utf-8'))
+        self.lda = LatentDirichletAllocation(n_topics=n_topics, max_iter=100,learning_method='online', learning_offset=50, random_state=999)
         self.lda.fit(tf)
 
     def print_top_words(self, n_top_words=10):
-        # pprint(self.lda.components_ / self.lda.components_.sum(axis=1)[:, np.newaxis])
-
         tf_feature_names = self.tf_vectorizer.get_feature_names()
         for topic_idx, topic in enumerate(self.lda.components_):
             print('Topic #{0}:'.format(str(topic_idx)))
@@ -108,8 +115,8 @@ class ChnTfidfLDAModel():
     def __init__(self,train_texts,test_texts):
         self.train_texts = train_texts
         self.test_texts = test_texts
-        self.num_topics = [5]
-        # self.num_topics = [5, 10, 15, 20, 30, 40]
+        # self.num_topics = [5]
+        self.num_topics = [5, 10, 15, 20]
         # topicnums = [1, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100]
         self.no_below_this_number = 50
         self.no_above_fraction_of_doc = 0.2
@@ -166,14 +173,12 @@ class ChnTfidfLDAModel():
         corpus = [dictionary.doc2bow(text) for text in self.train_texts]
         self.tfidf = models.TfidfModel(corpus)
         corpus_tfidf = self.tfidf[corpus]
-        print(corpus_tfidf)
-
         for i in tqdm(self.num_topics, desc='num of topics'):
             random.seed(42)
             self.ldamodels_tfidf[i] = models.ldamodel.LdaModel(corpus_tfidf, num_topics=i, id2word=dictionary)
             self.ldamodels_tfidf[i].save('./data/ldamodels_tfidf_' + str(i) + '.lda')
             for j in range(i):
-                print('Topic {}: '.format (str(j) + self.ldamodels_tfidf[i].print_topic(j)))
+                print('Topic {} : {}'.format (str(j) , self.ldamodels_tfidf[i].print_topic(j)))
 
 
         # for i in tqdm(self.topicnums, desc='num of topics'):
@@ -229,16 +234,17 @@ class ChnTfidfLDAModel():
             #     print('topic %d: %s' % (ti, ' '.join('%s/%.2f' % (t[1], t[0]) for t in topic)))
             print("{}{} topics{}".format("="*25,k,"="*25))
 
-
-if __name__ == '__main__':
+def ccfnews():
     data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
     data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
     data['title'] = data['title'].astype(str)
     data['content'] = data['content'].astype(str)
-    wordseg = WordSeg("/home/tanglek/workspace/funlp/data/stop_words.txt")
+    wordseg = WordSeg("/home/tanglek/opensource/stopwords/all_stopwords.txt")
     df = data.drop_duplicates(['news_id'])
     texts=df['content'].tolist()
     texts = wordseg.cut(texts)
+    # print(texts[0])
+    print("texts size:{}".format(len(texts)))
     random.seed(42)
     train_set = random.sample(list(range(0, len(texts))), len(texts) - 1000)
     test_set = [x for x in list(range(0, len(texts))) if x not in train_set]
@@ -251,20 +257,24 @@ if __name__ == '__main__':
     model.print_topics()
 
 
-# if __name__ == '__main__':
-#     stop_words = [line.strip() for line in open("/home/tanglek/workspace/funlp/data/stop_words.txt", 'r', encoding='utf-8').readlines()]
-#     texts = []
-#     with codecs.open("/home/tanglek/dataset/corpus_seg_100k.txt",'r',encoding='utf-8') as f:
-#         for line in f.readlines():
-#             outstr = []
-#             for word in line.strip("\n").split(" "):
-#                 if word not in stop_words:
-#                     if word != '\t':
-#                         outstr.append(word)
-#             texts.append(outstr)
-#
-#     print("texts size:{}".format(len(texts)))
-#     # texts = wordseg.cut(texts)
-#     model = LDA_by_gensim("/home/tanglek/workspace/funlp/data/stop_words.txt",texts)
-#     model.run_lda()
-#     model.print_top_words()
+def large_corpus_test():
+    stop_words = [line.strip() for line in open("/home/tanglek/workspace/funlp/data/stop_words.txt", 'r', encoding='utf-8').readlines()]
+    texts = []
+    with codecs.open("/home/tanglek/dataset/corpus_seg_100k.txt",'r',encoding='utf-8') as f:
+        for line in f.readlines():
+            outstr = []
+            for word in line.strip("\n").split(" "):
+                if word not in stop_words:
+                    if word != '\t':
+                        outstr.append(word)
+            texts.append(outstr)
+
+    print("texts size:{}".format(len(texts)))
+    # texts = wordseg.cut(texts)
+    model = LDA_by_sklearn("/home/tanglek/workspace/funlp/data/stop_words.txt",texts)
+    model.run_lda()
+    model.print_top_words()
+
+
+if __name__ == '__main__':
+    ccfnews()
