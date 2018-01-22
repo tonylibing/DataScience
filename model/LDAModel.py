@@ -3,6 +3,7 @@ import os
 import re
 import pickle
 import random
+import time
 from pprint import pprint
 import gensim
 import jieba
@@ -21,6 +22,231 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 from functools import lru_cache
+import numpy.linalg
+import scipy.optimize
+from six.moves import xrange
+
+""" Module to compute projections on the positive simplex or the L1-ball
+
+A positive simplex is a set X = { \mathbf{x} | \sum_i x_i = s, x_i \geq 0 }
+
+The (unit) L1-ball is the set X = { \mathbf{x} | || x ||_1 \leq 1 }
+
+Adrien Gaidon - INRIA - 2011
+"""
+
+
+
+def euclidean_proj_simplex(v, s=1):
+    """ Compute the Euclidean projection on a positive simplex
+
+    Solves the optimisation problem (using the algorithm from [1]):
+
+        min_w 0.5 * || w - v ||_2^2 , s.t. \sum_i w_i = s, w_i >= 0
+
+    Parameters
+    ----------
+    v: (n,) numpy array,
+       n-dimensional vector to project
+
+    s: int, optional, default: 1,
+       radius of the simplex
+
+    Returns
+    -------
+    w: (n,) numpy array,
+       Euclidean projection of v on the simplex
+
+    Notes
+    -----
+    The complexity of this algorithm is in O(n log(n)) as it involves sorting v.
+    Better alternatives exist for high-dimensional sparse vectors (cf. [1])
+    However, this implementation still easily scales to millions of dimensions.
+
+    References
+    ----------
+    [1] Efficient Projections onto the .1-Ball for Learning in High Dimensions
+        John Duchi, Shai Shalev-Shwartz, Yoram Singer, and Tushar Chandra.
+        International Conference on Machine Learning (ICML 2008)
+        http://www.cs.berkeley.edu/~jduchi/projects/DuchiSiShCh08.pdf
+    """
+    assert s > 0, "Radius s must be strictly positive (%d <= 0)" % s
+    n, = v.shape  # will raise ValueError if v is not 1-D
+    # check if we are already on the simplex
+    if v.sum() == s and np.alltrue(v >= 0):
+        # best projection: itself!
+        return v
+    # get the array of cumulative sums of a sorted (decreasing) copy of v
+    u = np.sort(v)[::-1]
+    cssv = np.cumsum(u)
+    # get the number of > 0 components of the optimal solution
+    rho = np.nonzero(u * np.arange(1, n + 1) > (cssv - s))[0][-1]
+    # compute the Lagrange multiplier associated to the simplex constraint
+    theta = (cssv[rho] - s) / (rho + 1.0)
+    # compute the projection by thresholding v using theta
+    w = (v - theta).clip(min=0)
+    return w
+
+
+def euclidean_proj_l1ball(v, s=1):
+    """ Compute the Euclidean projection on a L1-ball
+
+    Solves the optimisation problem (using the algorithm from [1]):
+
+        min_w 0.5 * || w - v ||_2^2 , s.t. || w ||_1 <= s
+
+    Parameters
+    ----------
+    v: (n,) numpy array,
+       n-dimensional vector to project
+
+    s: int, optional, default: 1,
+       radius of the L1-ball
+
+    Returns
+    -------
+    w: (n,) numpy array,
+       Euclidean projection of v on the L1-ball of radius s
+
+    Notes
+    -----
+    Solves the problem by a reduction to the positive simplex case
+
+    See also
+    --------
+    euclidean_proj_simplex
+    """
+    assert s > 0, "Radius s must be strictly positive (%d <= 0)" % s
+    n, = v.shape  # will raise ValueError if v is not 1-D
+    # compute the vector of absolute values
+    u = np.abs(v)
+    # check if v is already a solution
+    if u.sum() <= s:
+        # L1-norm is <= s
+        return v
+    # v is not already a solution: optimum lies on the boundary (norm == s)
+    # project *u* on the simplex
+    w = euclidean_proj_simplex(u, s=s)
+    # compute the solution to the original problem on v
+    w *= np.sign(v)
+    return w
+
+
+e = 1e-100
+error_diff = 10
+
+
+class CollaborativeTopicModel():
+    """
+    Wang, Chong, and David M. Blei. "Collaborative topic modeling for recommending scientific articles."
+    Proceedings of the 17th ACM SIGKDD international conference on Knowledge discovery and data mining. ACM, 2011.
+    Attributes
+    ----------
+    n_item: int
+        number of items
+    n_user: int
+        number of users
+    R: ndarray, shape (n_user, n_item)
+        user x item rating matrix
+    """
+
+    def __init__(self, n_topic, n_voca, n_user, n_item, doc_ids, doc_cnt, ratings):
+        self.lambda_u = 0.01
+        self.lambda_v = 0.01
+        self.alpha = 1
+        self.eta = 0.01
+        self.a = 1
+        self.b = 0.01
+
+        self.n_topic = n_topic
+        self.n_voca = n_voca
+        self.n_user = n_user
+        self.n_item = n_item
+
+        # U = user_topic matrix, U x K
+        self.U = np.random.multivariate_normal(np.zeros(n_topic), np.identity(n_topic) * (1. / self.lambda_u),
+                                               size=self.n_user)
+        # V = item(doc)_topic matrix, V x K
+        self.V = np.random.multivariate_normal(np.zeros(n_topic), np.identity(n_topic) * (1. / self.lambda_u),
+                                               size=self.n_item)
+        self.theta = np.random.random([n_item, n_topic])
+        self.theta = self.theta / self.theta.sum(1)[:, np.newaxis]  # normalize
+        self.beta = np.random.random([n_voca, n_topic])
+        self.beta = self.beta / self.beta.sum(0)  # normalize
+
+        self.doc_ids = doc_ids
+        self.doc_cnt = doc_cnt
+
+        self.C = np.zeros([n_user, n_item]) + self.b
+        self.R = np.zeros([n_user, n_item])  # user_size x item_size
+
+        for di in xrange(len(ratings)):
+            rate = ratings[di]
+            for user in rate:
+                self.C[di,user] += self.a - self.b
+                self.R[di,user] = 1
+
+        self.phi_sum = np.zeros([n_voca, n_topic]) + self.eta
+
+    def fit(self, doc_ids, doc_cnt, rating_matrix, max_iter=100):
+        old_err = 0
+        for iteration in xrange(max_iter):
+            tic = time.clock()
+            self.do_e_step()
+            self.do_m_step()
+            err = self.sqr_error()
+            if self.verbose:
+                print('[ITER] %3d,\tElapsed time:%.2f,\tReconstruction error:%.3f', iteration,
+                            time.clock() - tic, err)
+            if abs(old_err - err) < error_diff:
+                break
+
+    # reconstructing matrix for prediction
+    def predict_item(self):
+        return np.dot(self.U, self.V.T)
+
+    # reconstruction error
+    def sqr_error(self):
+        err = (self.R - self.predict_item()) ** 2
+        err = err.sum()
+
+        return err
+
+    def do_e_step(self):
+        self.update_u()
+        self.update_v()
+        self.update_theta()
+
+    def update_theta(self):
+        def func(x, v, phi, beta, lambda_v):
+            return 0.5 * lambda_v * np.dot((v - x).T, v - x) - np.sum(np.sum(phi * (np.log(x * beta) - np.log(phi))))
+
+        for vi in xrange(self.n_item):
+            W = np.array(self.doc_ids[vi])
+            word_beta = self.beta[W, :]
+            phi = self.theta[vi, :] * word_beta + e  # W x K
+            phi = phi / phi.sum(1)[:, np.newaxis]
+            result = scipy.optimize.minimize(func, self.theta[vi, :], method='nelder-mead',
+                                             args=(self.V[vi, :], phi, word_beta, self.lambda_v))
+            self.theta[vi, :] = euclidean_proj_simplex(result.x)
+            self.phi_sum[W, :] += np.array(self.doc_cnt[vi])[:, np.newaxis] * phi
+
+    def update_u(self):
+        for ui in xrange(self.n_user):
+            left = np.dot(self.V.T * self.C[ui, :], self.V) + self.lambda_u * np.identity(self.n_topic)
+
+            self.U[ui, :] = numpy.linalg.solve(left, np.dot(self.V.T * self.C[ui, :], self.R[ui, :]))
+
+    def update_v(self):
+        for vi in xrange(self.n_item):
+            left = np.dot(self.U.T * self.C[:, vi], self.U) + self.lambda_v * np.identity(self.n_topic)
+
+            self.V[vi, :] = numpy.linalg.solve(left, np.dot(self.U.T * self.C[:, vi],
+                                                            self.R[:, vi]) + self.lambda_v * self.theta[vi, :])
+
+    def do_m_step(self):
+        self.beta = self.phi_sum / self.phi_sum.sum(0)
+        self.phi_sum = np.zeros([self.n_voca, self.n_topic]) + self.eta
 
 class WordSeg1():
     def __init__(self,stopwords_path = ''):
@@ -234,6 +460,7 @@ class ChnTfidfLDAModel():
             #     print('topic %d: %s' % (ti, ' '.join('%s/%.2f' % (t[1], t[0]) for t in topic)))
             print("{}{} topics{}".format("="*25,k,"="*25))
 
+
 def ccfnews():
     data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
     data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
@@ -254,7 +481,7 @@ def ccfnews():
     model = ChnTfidfLDAModel(texts,texts)
     # model = ChnTfidfLDAModel(train_texts,test_texts)
     model.eval()
-    model.print_topics()
+    # model.print_topics()
 
 
 def large_corpus_test():
@@ -275,6 +502,29 @@ def large_corpus_test():
     model.run_lda()
     model.print_top_words()
 
+def ctr():
+    data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
+    data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
+    data['title'] = data['title'].astype(str)
+    data['content'] = data['content'].astype(str)
+    num_topics = 10
+    n_voca = 100000
+    n_users= len(data['user_id'].unique())
+    n_items = len(data['news_id'].unique())
+    doc_ids = range(len(data['news_id'].unique()))
+    doc_cnts = n_items
+
+    data['rating'] = int(1)
+    data = data.sort_values(['browse_time'], ascending=True).groupby(["user_id", "news_id"]).last().reset_index()
+    ratings = data.pivot(index='user_id', columns='news_id', values='rating')
+    ratings.fillna(0,inplace=True)
+    rt=ratings.values.astype(int)
+    print('Start creating model...')
+    CTR = CollaborativeTopicModel(n_topic = num_topics,n_voca= n_voca, n_user=n_users, n_item=n_items, doc_ids=doc_ids, doc_cnt=doc_cnts,ratings=rt)
+    print('Start fiting model...')
+    CTR.fit(doc_ids=None, doc_cnt=None, rating_matrix=None,max_iter=100)
+    print ('Testing')
 
 if __name__ == '__main__':
-    ccfnews()
+    ctr()
+    # ccfnews()
