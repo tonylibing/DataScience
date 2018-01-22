@@ -151,7 +151,8 @@ class CollaborativeTopicModel():
         user x item rating matrix
     """
 
-    def __init__(self, n_topic, n_voca, n_user, n_item, doc_ids, doc_cnt, ratings):
+    def __init__(self,lda, n_topic, n_voca, n_user, n_item, doc_ids, doc_cnt, ratings):
+        self.lda_model = lda
         self.lambda_u = 0.01
         self.lambda_v = 0.01
         self.alpha = 1
@@ -170,10 +171,11 @@ class CollaborativeTopicModel():
         # V = item(doc)_topic matrix, V x K
         self.V = np.random.multivariate_normal(np.zeros(n_topic), np.identity(n_topic) * (1. / self.lambda_u),
                                                size=self.n_item)
-        self.theta = np.random.random([n_item, n_topic])
-        self.theta = self.theta / self.theta.sum(1)[:, np.newaxis]  # normalize
-        self.beta = np.random.random([n_voca, n_topic])
-        self.beta = self.beta / self.beta.sum(0)  # normalize
+        self.theta = self.load_lda_distribution()
+        # self.theta = np.random.random([n_item, n_topic])
+        # self.theta = self.theta / self.theta.sum(1)[:, np.newaxis]  # normalize
+        # self.beta = np.random.random([n_voca, n_topic])
+        # self.beta = self.beta / self.beta.sum(0)  # normalize
 
         self.doc_ids = doc_ids
         self.doc_cnt = doc_cnt
@@ -188,6 +190,9 @@ class CollaborativeTopicModel():
                 self.R[di,user] = 1
 
         self.phi_sum = np.zeros([n_voca, n_topic]) + self.eta
+
+    def load_lda_distribution(self):
+        return self.lda_model.get_topic_distribution()
 
     def fit(self, doc_ids, doc_cnt, rating_matrix, max_iter=100):
         old_err = 0
@@ -216,7 +221,7 @@ class CollaborativeTopicModel():
     def do_e_step(self):
         self.update_u()
         self.update_v()
-        self.update_theta()
+        # self.update_theta()
 
     def update_theta(self):
         def func(x, v, phi, beta, lambda_v):
@@ -235,15 +240,12 @@ class CollaborativeTopicModel():
     def update_u(self):
         for ui in xrange(self.n_user):
             left = np.dot(self.V.T * self.C[ui, :], self.V) + self.lambda_u * np.identity(self.n_topic)
-
             self.U[ui, :] = numpy.linalg.solve(left, np.dot(self.V.T * self.C[ui, :], self.R[ui, :]))
 
     def update_v(self):
         for vi in xrange(self.n_item):
             left = np.dot(self.U.T * self.C[:, vi], self.U) + self.lambda_v * np.identity(self.n_topic)
-
-            self.V[vi, :] = numpy.linalg.solve(left, np.dot(self.U.T * self.C[:, vi],
-                                                            self.R[:, vi]) + self.lambda_v * self.theta[vi, :])
+            self.V[vi, :] = numpy.linalg.solve(left, np.dot(self.U.T * self.C[:, vi],self.R[:, vi]) + self.lambda_v * self.theta[vi, :])
 
     def do_m_step(self):
         self.beta = self.phi_sum / self.phi_sum.sum(0)
@@ -525,24 +527,40 @@ def ctr():
     data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
     data['title'] = data['title'].astype(str)
     data['content'] = data['content'].astype(str)
+    #pre trained lda model
+    wordseg = WordSeg("/home/tanglek/opensource/stopwords/all_stopwords.txt")
+    df = data.drop_duplicates(['news_id'])
+    texts=df['content'].tolist()
+    texts = wordseg.cut(texts)
+    # print(texts[0])
+    print("texts size:{}".format(len(texts)))
+    random.seed(42)
+    train_set = random.sample(list(range(0, len(texts))), len(texts) - 1000)
+    test_set = [x for x in list(range(0, len(texts))) if x not in train_set]
+
+    train_texts = [texts[i] for i in train_set]
+    test_texts = [texts[i] for i in test_set]
+    model = ChnTfidfLDAModel(texts,texts)
+    # model = ChnTfidfLDAModel(train_texts,test_texts)
+    model.eval()
+    #train ctr model
     num_topics = 10
     n_voca = 100000
     n_users= len(data['user_id'].unique())
     n_items = len(data['news_id'].unique())
     doc_ids = range(len(data['news_id'].unique()))
     doc_cnts = n_items
-
     data['rating'] = int(1)
     data = data.sort_values(['browse_time'], ascending=True).groupby(["user_id", "news_id"]).last().reset_index()
     ratings = data.pivot(index='user_id', columns='news_id', values='rating')
     ratings.fillna(0,inplace=True)
     rt=ratings.values.astype(int)
     print('Start creating model...')
-    CTR = CollaborativeTopicModel(n_topic = num_topics,n_voca= n_voca, n_user=n_users, n_item=n_items, doc_ids=doc_ids, doc_cnt=doc_cnts,ratings=rt)
+    CTR = CollaborativeTopicModel(lda=model,n_topic = num_topics,n_voca= n_voca, n_user=n_users, n_item=n_items, doc_ids=doc_ids, doc_cnt=doc_cnts,ratings=rt)
     print('Start fiting model...')
     CTR.fit(doc_ids=None, doc_cnt=None, rating_matrix=None,max_iter=100)
     print ('Testing')
 
 if __name__ == '__main__':
-    # ctr()
-    ccfnews()
+    ctr()
+    # ccfnews()
