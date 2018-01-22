@@ -19,6 +19,7 @@ from gensim.corpora import Dictionary
 from gensim.models import LdaModel
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 from functools import lru_cache
@@ -346,8 +347,11 @@ class ChnTfidfLDAModel():
         # topicnums = [1, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100]
         self.no_below_this_number = 50
         self.no_above_fraction_of_doc = 0.2
+        self.corpus = None
+        self.model = None
         self.ldamodels_tfidf = {}
         self.ldamodels_eval = {}
+        self.all_topics = None
 
     # http://radimrehurek.com/topic_modeling_tutorial/2%20-%20Topic%20Modeling.html
     def intra_inter_tfidf(self,lda_model, dictionary, test_docs, num_pairs=10000):
@@ -396,15 +400,18 @@ class ChnTfidfLDAModel():
     def eval(self):
         dictionary = corpora.Dictionary(self.train_texts)
         dictionary.filter_extremes(no_below=self.no_below_this_number, no_above=self.no_above_fraction_of_doc)
-        corpus = [dictionary.doc2bow(text) for text in self.train_texts]
-        self.tfidf = models.TfidfModel(corpus)
-        corpus_tfidf = self.tfidf[corpus]
+        self.corpus = [dictionary.doc2bow(text) for text in self.train_texts]
+        self.tfidf = models.TfidfModel(self.corpus)
+        corpus_tfidf = self.tfidf[self.corpus]
         for i in tqdm(self.num_topics, desc='num of topics'):
             random.seed(42)
             self.ldamodels_tfidf[i] = models.ldamodel.LdaModel(corpus_tfidf, num_topics=i, id2word=dictionary)
             self.ldamodels_tfidf[i].save('./data/ldamodels_tfidf_' + str(i) + '.lda')
             for j in range(i):
                 print('Topic {} : {}'.format (str(j) , self.ldamodels_tfidf[i].print_topic(j)))
+
+        self.n_topic = self.num_topics[0]
+        self.model = self.ldamodels_tfidf[self.num_topics[0]]
 
 
         # for i in tqdm(self.topicnums, desc='num of topics'):
@@ -460,6 +467,16 @@ class ChnTfidfLDAModel():
             #     print('topic %d: %s' % (ti, ' '.join('%s/%.2f' % (t[1], t[0]) for t in topic)))
             print("{}{} topics{}".format("="*25,k,"="*25))
 
+    def get_topic_distribution(self):
+        topics = self.model.get_document_topics(self.corpus, per_word_topics=True)
+        self.all_topics = [(doc_topics, word_topics, word_phis) for doc_topics, word_topics, word_phis in topics]
+        self.topic_dist = np.zeros([len(self.corpus), self.n_topic])
+        for i,doc in enumerate(self.all_topics):
+            for probs in doc[0]:
+                (topic_idx,proba) = probs
+                self.topic_dist[i,topic_idx] = proba
+
+        return self.topic_dist
 
 def ccfnews():
     data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
@@ -481,8 +498,9 @@ def ccfnews():
     model = ChnTfidfLDAModel(texts,texts)
     # model = ChnTfidfLDAModel(train_texts,test_texts)
     model.eval()
+    topic_dist = model.get_topic_distribution()
+    print(topic_dist)
     # model.print_topics()
-
 
 def large_corpus_test():
     stop_words = [line.strip() for line in open("/home/tanglek/workspace/funlp/data/stop_words.txt", 'r', encoding='utf-8').readlines()]
@@ -526,5 +544,5 @@ def ctr():
     print ('Testing')
 
 if __name__ == '__main__':
-    ctr()
-    # ccfnews()
+    # ctr()
+    ccfnews()
