@@ -9,6 +9,7 @@ import gensim
 import jieba
 import jieba.analyse
 import jieba.analyse
+import jieba.posseg as psg
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -153,6 +154,7 @@ class CollaborativeTopicModel():
 
     def __init__(self,lda, n_topic, n_voca, n_user, n_item, doc_ids, doc_cnt, ratings):
         self.lda_model = lda
+        self.verbose=True
         self.lambda_u = 0.01
         self.lambda_v = 0.01
         self.alpha = 1
@@ -194,7 +196,7 @@ class CollaborativeTopicModel():
     def load_lda_distribution(self):
         return self.lda_model.get_topic_distribution()
 
-    def fit(self, doc_ids, doc_cnt, rating_matrix, max_iter=100):
+    def fit(self, doc_ids, doc_cnt, rating_matrix, max_iter=1000):
         old_err = 0
         for iteration in xrange(max_iter):
             tic = time.clock()
@@ -202,8 +204,7 @@ class CollaborativeTopicModel():
             self.do_m_step()
             err = self.sqr_error()
             if self.verbose:
-                print('[ITER] %3d,\tElapsed time:%.2f,\tReconstruction error:%.3f', iteration,
-                            time.clock() - tic, err)
+                print('[ITER] {0},\tElapsed time:{1},\tReconstruction error:{2}'.format(iteration, time.clock() - tic, err))
             if abs(old_err - err) < error_diff:
                 break
 
@@ -291,7 +292,10 @@ class WordSeg():
 
     def seg_stopword_sentence(self,sentence):
         line = self.remove_illegal(sentence)
-        return list(jieba.cut(line))
+        res = [x.word  for x in psg.cut(line) if x.flag.startswith('n')]
+        # res = [(x.word, x.flag) for x in psg.cut(line) if x.flag.startswith('n')]
+        return res
+        # return list(jieba.cut(line))
 
     def cut_df(self,df,col='content'):
         return df[col].apply(self.seg_stopword_sentence)
@@ -412,8 +416,8 @@ class ChnTfidfLDAModel():
             for j in range(i):
                 print('Topic {} : {}'.format (str(j) , self.ldamodels_tfidf[i].print_topic(j)))
 
-        self.n_topic = self.num_topics[0]
-        self.model = self.ldamodels_tfidf[self.num_topics[0]]
+        self.n_topic = self.num_topics[1]
+        self.model = self.ldamodels_tfidf[self.num_topics[1]]
 
 
         # for i in tqdm(self.topicnums, desc='num of topics'):
