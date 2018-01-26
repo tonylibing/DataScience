@@ -1,5 +1,6 @@
 import codecs
 import os
+import glob
 import re
 import pickle
 import random
@@ -135,7 +136,7 @@ def euclidean_proj_l1ball(v, s=1):
 
 
 e = 1e-100
-error_diff = 10
+error_diff = 1.0
 
 
 class CollaborativeTopicModel():
@@ -252,6 +253,13 @@ class CollaborativeTopicModel():
         self.beta = self.phi_sum / self.phi_sum.sum(0)
         self.phi_sum = np.zeros([self.n_voca, self.n_topic]) + self.eta
 
+    def in_matrix_test(self):
+        pass
+
+    def outof_matrix_test(self):
+        pass
+
+
 class WordSeg1():
     def __init__(self,stopwords_path = ''):
         self.stop_words = [line.strip() for line in open(stopwords_path, 'r', encoding='utf-8').readlines()]
@@ -269,7 +277,6 @@ class WordSeg1():
 
     def cut(self,df,col='content'):
         return df[col].apply(self.seg_stopword_sentence)
-
 
 class WordSeg():
     def __init__(self,stopwords_path = '',user_dict=None):
@@ -293,8 +300,12 @@ class WordSeg():
     def seg_stopword_sentence(self,sentence):
         line = self.remove_illegal(sentence)
         res = [x.word  for x in psg.cut(line) if x.flag.startswith('n')]
-        # res = [(x.word, x.flag) for x in psg.cut(line) if x.flag.startswith('n')]
         return res
+        # res = [(x.word, x.flag) for x in psg.cut(line) if x.flag.startswith('n')]
+        # if len(res)>0:
+        #     return res
+        # else:
+        #     return None
         # return list(jieba.cut(line))
 
     def cut_df(self,df,col='content'):
@@ -345,7 +356,8 @@ class LDA_by_gensim():
         #     print(topic)
 
 class ChnTfidfLDAModel():
-    def __init__(self,train_texts,test_texts):
+    def __init__(self,model_name,train_texts,test_texts):
+        self.model_name = model_name
         self.train_texts = train_texts
         self.test_texts = test_texts
         # self.num_topics = [5]
@@ -394,7 +406,7 @@ class ChnTfidfLDAModel():
     def fit_lda(X, vocab, num_topics=5, passes=20):
         """ Fit LDA from a scipy CSR matrix (X). """
         print('fitting lda...')
-        return models.ldamodel.LdaModel(matutils.Sparse2Corpus(X), num_topics=num_topics,
+        return LdaModel(matutils.Sparse2Corpus(X), num_topics=num_topics,
                         passes=passes,
                         id2word=dict([(i, s) for i, s in enumerate(vocab)]))
 
@@ -411,8 +423,8 @@ class ChnTfidfLDAModel():
         corpus_tfidf = self.tfidf[self.corpus]
         for i in tqdm(self.num_topics, desc='num of topics'):
             random.seed(42)
-            self.ldamodels_tfidf[i] = models.ldamodel.LdaModel(corpus_tfidf, num_topics=i, id2word=dictionary)
-            self.ldamodels_tfidf[i].save('./data/ldamodels_tfidf_' + str(i) + '.lda')
+            self.ldamodels_tfidf[i] =LdaModel(corpus_tfidf, num_topics=i, id2word=dictionary)
+            self.ldamodels_tfidf[i].save('./data/{0}_ldamodels_tfidf_{1}.lda'.format(self.model_name,str(i)))
             for j in range(i):
                 print('Topic {} : {}'.format (str(j) , self.ldamodels_tfidf[i].print_topic(j)))
 
@@ -421,7 +433,7 @@ class ChnTfidfLDAModel():
 
 
         # for i in tqdm(self.topicnums, desc='num of topics'):
-        #     lda_model = models.ldamodel.LdaModel.load('./data/ldamodels_tfidf_' + str(i) + '.lda')
+        #     lda_model =LdaModel.load('./data/ldamodels_tfidf_' + str(i) + '.lda')
         #     self.ldamodels_eval[i] = self.intra_inter_tfidf(lda_model, dictionary, self.test_texts)
         #
         # pickle.dump(self.ldamodels_eval, open('./data/pub_ldamodels_tfidf_eval.pkl', 'wb'))
@@ -484,6 +496,25 @@ class ChnTfidfLDAModel():
 
         return self.topic_dist
 
+    def load_pretrained_model(self,model_path):
+        return LdaModel.load(model_path, mmap='r')
+
+def thucnews_lda():
+    wordseg = WordSeg("/home/tanglek/opensource/stopwords/all_stopwords.txt")
+    texts=[]
+    i =0
+    for filename in tqdm(glob.iglob("/home/tanglek/dataset/THUCNews/**/*.txt", recursive=True),'processing THUCNews'):
+        # print(filename)
+        with codecs.open(filename, 'r', encoding='utf-8') as f:
+            line = f.read()
+            texts.append(line)
+
+    texts = wordseg.cut(texts)
+    print("texts len:{}".format(len(texts)))
+    # print(texts)
+    model = ChnTfidfLDAModel('thucnews',texts,None)
+    model.eval()
+
 def ccfnews():
     data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
     data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
@@ -501,8 +532,8 @@ def ccfnews():
 
     train_texts = [texts[i] for i in train_set]
     test_texts = [texts[i] for i in test_set]
-    model = ChnTfidfLDAModel(texts,texts)
-    # model = ChnTfidfLDAModel(train_texts,test_texts)
+    model = ChnTfidfLDAModel('ccfnews',texts,texts)
+    # model = ChnTfidfLDAModel('ccfnews',train_texts,test_texts)
     model.eval()
     topic_dist = model.get_topic_distribution()
     print(topic_dist)
@@ -526,7 +557,7 @@ def large_corpus_test():
     model.run_lda()
     model.print_top_words()
 
-def ctr():
+def ccfnews_cf_topic_regression():
     data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
     data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
     data['title'] = data['title'].astype(str)
@@ -544,7 +575,7 @@ def ctr():
 
     train_texts = [texts[i] for i in train_set]
     test_texts = [texts[i] for i in test_set]
-    model = ChnTfidfLDAModel(texts,texts)
+    model = ChnTfidfLDAModel('ccfnews',texts,texts)
     # model = ChnTfidfLDAModel(train_texts,test_texts)
     model.eval()
     #train ctr model
@@ -566,5 +597,6 @@ def ctr():
     print ('Testing')
 
 if __name__ == '__main__':
-    ctr()
+    thucnews_lda()
+    # ccfnews_cf_topic_regression()
     # ccfnews()
