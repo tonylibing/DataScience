@@ -28,6 +28,8 @@ from functools import lru_cache
 import numpy.linalg
 import scipy.optimize
 from six.moves import xrange
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold
 
 """ Module to compute projections on the positive simplex or the L1-ball
 
@@ -596,7 +598,37 @@ def ccfnews_cf_topic_regression():
     CTR.fit(doc_ids=None, doc_cnt=None, rating_matrix=None,max_iter=100)
     print ('Testing')
 
+def in_matrix_split(n_folds=5):
+    data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
+    data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
+    data['title'] = data['title'].astype(str)
+    data['content'] = data['content'].astype(str)
+    news_tms = data.groupby('news_id').size().reset_index()
+    news_tms.columns = ['news_id', 'cnt']
+    news_tms2 = news_tms.loc[news_tms['cnt'] >= 5]
+    news_tms3 =  news_tms.loc[news_tms['cnt'] < 5]
+    apear_news = pd.merge(news_tms2, data, how='left', on='news_id')
+    apear_less_news = pd.merge(news_tms3, data, how='left', on='news_id')
+    skf = StratifiedKFold(n_splits=5)
+    X = apear_news[['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']]
+    y = apear_news['news_id']
+    skf = StratifiedKFold(n_splits=n_folds)
+    for train_index, test_index in skf.split(X, y):
+        print("TRAIN:", len(train_index), "TEST:", len(test_index))
+
+        # X_train, X_test = X[train_index], X[test_index]
+        # y_train, y_test = y[train_index], y[test_index]
+
+
+def outof_matrix_cv(n_folds=5):
+    data = pd.read_csv("~/dataset/ccf_news_rec/train.txt", sep='\t', header=None)
+    data.columns = ['user_id', 'news_id', 'browse_time', 'title', 'content', 'published_at']
+    data['title'] = data['title'].astype(str)
+    data['content'] = data['content'].astype(str)
+    pass
+
 if __name__ == '__main__':
-    thucnews_lda()
+    # thucnews_lda()
     # ccfnews_cf_topic_regression()
+    in_matrix_split()
     # ccfnews()
