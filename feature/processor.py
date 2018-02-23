@@ -4,6 +4,7 @@ import json
 import numbers
 import random
 import time
+import sys
 import operator
 from tqdm import tqdm
 from collections import defaultdict
@@ -265,6 +266,38 @@ class FeatureEncoder(BaseEstimator):
         sorted_x = sorted(self.feature_names.items(), key=operator.itemgetter(1))
         info = processors + "\n" + json.dumps(sorted_x)
         return info
+
+
+class ContinuousFeatureGenerator:
+    """
+    Normalize the integer features to [0, 1] by min-max normalization
+    """
+
+    def __init__(self, num_feature):
+        self.num_feature = num_feature
+        self.min = [sys.maxsize] * num_feature
+        self.max = [-sys.maxsize] * num_feature
+        #gen continous clip
+        self.continous_clip = []
+
+    def build(self, datafile, continous_features):
+        with open(datafile, 'r') as f:
+            for line in f:
+                features = line.rstrip('\n').split('\t')
+                for i in range(0, self.num_feature):
+                    val = features[continous_features[i]]
+                    if val != '':
+                        val = int(val)
+                        if val > self.continous_clip[i]:
+                            val = self.continous_clip[i]
+                        self.min[i] = min(self.min[i], val)
+                        self.max[i] = max(self.max[i], val)
+
+    def gen(self, idx, val):
+        if val == '':
+            return 0.0
+        val = float(val)
+        return (val - self.min[idx]) / (self.max[idx] - self.min[idx])
 
 
 class OutliersFilter(TransformerMixin):
