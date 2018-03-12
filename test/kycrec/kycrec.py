@@ -60,7 +60,7 @@ def product_feat():
         products =  pd.concat([products, product_category_one_hot,cmn_product_category_one_hot,item_one_hot,amt,period,amt2,period2], axis=1)
         #products =  pd.concat([products, product_category_one_hot,cmn_product_category_one_hot,item_one_hot,amt,period,amt2,period2], axis=1)
         products['product_group']=products['price_group'].astype(str)+'_'+products['period_group'].astype(str)
-        products.drop(['product_category', 'cmn_product_category', 'item','product_price', 'invest_period_by_days'],axis=1,inplace=True)
+        #products.drop(['product_category', 'cmn_product_category', 'item','product_price', 'invest_period_by_days'],axis=1,inplace=True)
         pickle.dump(products, open(dump_path, 'wb'))
 #        pickle.dump(products[['product_id','group'])
     
@@ -74,12 +74,13 @@ def get_browse(start_date,end_date):
     if os.path.exists(dump_path):
         browse = pickle.load(open(dump_path, 'rb'))
     else:
-        products = product_feat()
         browse = pd.read_csv(spec_browse_data)
         browse.dropna(inplace=True)
         browse['user_id']=browse['user_id'].astype(int)
         browse['date']=browse['request_time'].apply(lambda x:x[:10])
-        browse = browse[(browse['request_time'] >= start_date) & (browse['request_time'] < end_date)]
+        del browse['request_time']
+        browse = browse[(browse['date'] >= start_date) & (browse['date'] < end_date)]
+        products = product_feat()
         browse = pd.merge(browse,products[['product_id','product_group']],how='left',on='product_id')
 #        browse = browse[(browse['product_id']==147566049) | (browse['product_id']==157269050)]
         pickle.dump(browse, open(dump_path, 'wb'))
@@ -327,6 +328,29 @@ def train():
     res = test_index.copy()
     res['prob'] = pre_y
     
+def train_sm():
+    train_start_date = '2017-12-01'
+    train_end_date = '2017-12-15'
+    act_start_date = '2017-12-16'
+    act_end_date = '2017-12-31'
 
+    test_start_date = '2018-01-01'
+    test_end_date = '2018-01-31'
+    test_act_start_date = '2018-02-01'
+    test_act_end_date = '2018-02-29'
+
+    train_X, train_Y = make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
+    # train_X, train_Y = make_train_set_slide(train_start_date, train_end_date, act_start_date, act_end_date)
+    test_index, test_X = make_test_set(test_start_date, test_end_date)
+
+    print('training...')
+    c = Counter(train_Y.values)
+    clf = XGBClassifier(max_depth=5, min_child_weight=6, scale_pos_weight=c[0] / 16 / c[1], nthread=12, seed=0)
+    clf.fit(train_X.values, train_Y.values)
+
+    pre_y = clf.predict_proba(test_X.values)[:,1]
+    res = test_index.copy()
+    res['prob'] = pre_y
+    
 if __name__ == '__main__':
-    train()
+    train_sm()
