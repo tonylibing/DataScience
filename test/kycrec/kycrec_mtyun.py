@@ -5,15 +5,15 @@ import sys
 import argparse
 import pickle
 from sklearn.datasets import dump_svmlight_file
-from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score,f1_score, accuracy_score, average_precision_score,log_loss
+from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score, f1_score, accuracy_score, \
+    average_precision_score, log_loss
 from datetime import datetime
 from datetime import timedelta
 from dateutil.parser import parse
-import xgboost
+import xgboost as xgb
 import lightgbm
 import tensorflow as tf
 
-from xgboost import XGBClassifier
 from collections import Counter
 
 # data_dir = "E:\\dataset\\kycdata"
@@ -21,20 +21,20 @@ from collections import Counter
 
 FLAGS = None
 
+
 class Rec():
-    def __init__(self,args):
+    def __init__(self, args):
         self.args = args
-        self.data_dir =  self.args.data_dir
-        self.cache_dir = os.path.join(self.data_dir,'cache')
-    
+        self.data_dir = self.args.data_dir
+        self.cache_dir = os.path.join(self.data_dir, 'cache')
+
     def value_customer(self):
         product_dir = os.path.join(self.data_dir, "value_customer.csv")
         with tf.gfile.FastGFile(product_dir, 'rb') as gf:
             value_customers = pd.read_csv(gf)
         value_customers
         return value_customers
-    
-    
+
     def user_feat(self):
         print('gen user feat')
         dump_path = os.path.join(self.cache_dir, 'user_feat.pkl')
@@ -65,7 +65,7 @@ class Rec():
             products.rename(columns={'id': 'product_id'}, inplace=True)
             products.loc[products['product_id'] == 147566049, 'invest_period_by_days'] = 28
             products.loc[products['product_id'] == 157269050, 'invest_period_by_days'] = 7
-            #products = products[(products['product_id']==147566049) | (products['product_id']==157269050)]
+            # products = products[(products['product_id']==147566049) | (products['product_id']==157269050)]
             # seg price
             amt_grp_names = ['1k', '1w', '5w', '10w', '30w', '50w', '100w', '1000w']
             amt_bins = [1, 1000, 10000, 50000, 100000, 300000, 500000, 1000000, 10000000]
@@ -85,15 +85,16 @@ class Rec():
             products = pd.concat(
                 [products, product_category_one_hot, cmn_product_category_one_hot, item_one_hot, amt, period], axis=1)
             # products =  pd.concat([products, product_category_one_hot,cmn_product_category_one_hot,item_one_hot,amt,period,amt2,period2], axis=1)
-            products['product_group'] = products['price_group'].astype(str) + '_' + products['period_group'].astype(str) + '_' + products['product_category'].astype(str)
+            products['product_group'] = products['price_group'].astype(str) + '_' + products['period_group'].astype(
+                str) + '_' + products['product_category'].astype(str)
             # products.drop(['product_category', 'cmn_product_category', 'item', 'product_price', 'invest_period_by_days'],axis=1, inplace=True)
-            #add product group cvr features
+            # add product group cvr features
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(products, gf)
 
         return products
 
-    def get_browse(self,start_date, end_date):
+    def get_browse(self, start_date, end_date):
         print('get browse', start_date, end_date)
         spec_browse_data = os.path.join(self.data_dir, "browse.csv")
         dump_path = os.path.join(self.cache_dir, 'user_browse_%s_%s.pkl' % (start_date, end_date))
@@ -110,14 +111,13 @@ class Rec():
             browse = browse[(browse['date'] >= start_date) & (browse['date'] <= end_date)]
             products = self.product_feat()
             browse = pd.merge(browse, products[['product_id', 'product_group']], how='left', on='product_id')
-            #browse = browse[(browse['product_id']==147566049) | (browse['product_id']==157269050)]
+            # browse = browse[(browse['product_id']==147566049) | (browse['product_id']==157269050)]
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(browse, gf)
-    
+
         return browse
-    
-    
-    def gen_sample(self,start_date, end_date):
+
+    def gen_sample(self, start_date, end_date):
         print('get interactive users', start_date, end_date)
         # start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span)
         # start_date = start_date.strftime('%Y-%m-%d')
@@ -132,9 +132,8 @@ class Rec():
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(samples, gf)
         return samples
-    
-    
-    def user_browse_feature(self,start_date, end_date):
+
+    def user_browse_feature(self, start_date, end_date):
         print('gen user browse features', start_date, end_date)
         browse_feat = None
         dump_path = os.path.join(self.cache_dir, 'user_browse_feat_%s_%s.pkl' % (start_date, end_date))
@@ -158,32 +157,32 @@ class Rec():
                 browse_product_times.rename(columns={0: '%d_day_browse_id_times' % (span)}, inplace=True)
                 # browse duration
                 browse_product_duration = browse.groupby(['user_id', 'product_group'])['duraction'].sum().reset_index()
-                browse_product_duration.rename(columns={'duraction': '%d_day_browse_id_duration' % (span)}, inplace=True)
+                browse_product_duration.rename(columns={'duraction': '%d_day_browse_id_duration' % (span)},
+                                               inplace=True)
                 # active days
                 active_days = browse.groupby(['user_id', 'date']).size().reset_index()
                 active_days = active_days.groupby('user_id').size().reset_index()
                 active_days.rename(columns={0: '%d_day_user_active_days' % (span)}, inplace=True)
                 active_duration = browse.groupby(['user_id'])['duraction'].sum().reset_index()
                 active_duration.rename(columns={'duraction': '%d_day_user_active_duration' % (span)}, inplace=True)
-    
+
                 browse_feat_tmp = pd.merge(browse_product_times, browse_product_duration, how='left',
                                            on=['user_id', 'product_group'])
                 browse_feat_tmp = pd.merge(browse_feat_tmp, active_days, how='left', on='user_id')
                 browse_feat_tmp = pd.merge(browse_feat_tmp, active_duration, how='left', on='user_id')
-    
+
                 if browse_feat is not None:
                     browse_feat = pd.merge(browse_feat, browse_feat_tmp, how='left', on=['user_id', 'product_group'])
                 else:
                     browse_feat = browse_feat_tmp
-    
+
             browse_feat.fillna(0, inplace=True)
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(browse_feat, gf)
-    
+
         return browse_feat
-    
-    
-    def get_invest(self,start_date, end_date):
+
+    def get_invest(self, start_date, end_date):
         print('get invests', start_date, end_date)
         dump_path = os.path.join(self.cache_dir, 'user_invest_%s_%s.pkl' % (start_date, end_date))
         if tf.gfile.Exists(dump_path):
@@ -202,11 +201,10 @@ class Rec():
             #        invest = invest[(invest['product_id']==147566049) |(invest['product_id']==157269050)]
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(invest, gf)
-    
+
         return invest
-    
-    
-    def user_invest_feature(self,start_date, end_date):
+
+    def user_invest_feature(self, start_date, end_date):
         print('gen user invest features', start_date, end_date)
         invest_feat = None
         dump_path = os.path.join(self.cache_dir, 'user_invest_feat_%s_%s.pkl' % (start_date, end_date))
@@ -230,7 +228,8 @@ class Rec():
                 invest_product_times = invest.groupby(['user_id', 'product_group']).size().reset_index()
                 invest_product_times.rename(columns={0: '%d_day_invest_id_times' % (span)}, inplace=True)
                 # invest product id amount
-                invest_product_amt = invest.groupby(['user_id', 'product_group'])['investment_amount'].sum().reset_index()
+                invest_product_amt = invest.groupby(['user_id', 'product_group'])[
+                    'investment_amount'].sum().reset_index()
                 invest_product_amt.rename(columns={'investment_amount': '%d_day_invest_id_amt' % (span)}, inplace=True)
                 # invest times
                 invest_times = invest.groupby(['user_id', 'invest_dt']).size().reset_index()
@@ -240,25 +239,24 @@ class Rec():
                 # invest amt
                 invest_amt = invest.groupby(['user_id'])['investment_amount'].sum().reset_index()
                 invest_amt.rename(columns={'investment_amount': '%d_day_invest_amt' % (span)}, inplace=True)
-    
+
                 invest_feat_tmp = pd.merge(invest_product_times, invest_product_amt, how='left',
                                            on=['user_id', 'product_group'])
                 invest_feat_tmp = pd.merge(invest_feat_tmp, invest_times, how='left', on='user_id')
                 invest_feat_tmp = pd.merge(invest_feat_tmp, invest_amt, how='left', on='user_id')
-    
+
                 if invest_feat is not None:
                     invest_feat = pd.merge(invest_feat, invest_feat_tmp, how='left', on=['user_id', 'product_group'])
                 else:
                     invest_feat = invest_feat_tmp
-    
+
             invest_feat.fillna(0, inplace=True)
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(invest_feat, gf)
-    
+
         return invest_feat
-    
-    
-    def gen_labels(self,start_date, end_date):
+
+    def gen_labels(self, start_date, end_date):
         print('gen lables', start_date, end_date)
         dump_path = os.path.join(self.cache_dir, 'labels_%s_%s.pkl' % (start_date, end_date))
         if tf.gfile.Exists(dump_path):
@@ -271,16 +269,16 @@ class Rec():
             invests = invests[['user_id', 'product_group', 'label']]
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(invests, gf)
-    
+
         return invests
 
-    def make_train_set(self,train_start_date, train_end_date, test_start_date, test_end_date):
+    def make_train_set(self, train_start_date, train_end_date, test_start_date, test_end_date):
         print('make train set', train_start_date, train_end_date, test_start_date, test_end_date)
         dump_path = os.path.join(self.cache_dir, 'train_set_%s_%s_%s_%s.pkl' % (
-        train_start_date, train_end_date, test_start_date, test_end_date))
+            train_start_date, train_end_date, test_start_date, test_end_date))
         if tf.gfile.Exists(dump_path):
             with tf.gfile.FastGFile(dump_path, 'rb') as gf:
-                actions = pickle.load(gf)
+                train_set = pickle.load(gf)
         else:
             browse_feat = self.user_browse_feature(train_start_date, train_end_date)
             invest_feat = self.user_invest_feature(train_start_date, train_end_date)
@@ -308,38 +306,38 @@ class Rec():
         del train_set['user_id']
         del train_set['product_group']
         del train_set['label']
-    
+
         print('train set cols:')
         print(train_set.columns)
         return train_set, labels
 
-    def make_sliding_train_set(self,start_date,end_date,slide_start_date,step=3):
+    def make_sliding_train_set(self, start_date, end_date, slide_start_date, step=3):
         window = datetime.strptime(end_date, '%Y-%m-%d') - datetime.strptime(slide_start_date, '%Y-%m-%d')
-        l = window.days/step
-        print("gen train set with step",step)
+        l = window.days / step
+        print("gen train set with step", step)
         X = None
         y = None
         for i in range(l):
-            s = datetime.strptime(slide_start_date, '%Y-%m-%d') + timedelta(days=i*step)
-            start = datetime.strftime(s,'%Y-%m-%d')
-            e = datetime.strptime(slide_start_date, '%Y-%m-%d') + timedelta(days=(i+1) * step)
-            end = datetime.strftime(e,'%Y-%m-%d')
-            if end>end_date:
+            s = datetime.strptime(slide_start_date, '%Y-%m-%d') + timedelta(days=i * step)
+            start = datetime.strftime(s, '%Y-%m-%d')
+            e = datetime.strptime(slide_start_date, '%Y-%m-%d') + timedelta(days=(i + 1) * step-1)
+            end = datetime.strftime(e, '%Y-%m-%d')
+            if end > end_date:
                 pass
             else:
-                X_train,y_train = self.make_train_set(start,end)
+                X_train, y_train = self.make_train_set(start, end)
                 if X is None:
-                    X=X_train
-                    y=y_train
+                    X = X_train
+                    y = y_train
                 else:
-                    X = pd.concat([X,X_train],axis=0)
+                    X = pd.concat([X, X_train], axis=0)
                     del X_train
-                    y = pd.concat([y,y_train],axis=0)
+                    y = pd.concat([y, y_train], axis=0)
                     del y_train
 
-        return X,y
+        return X, y
 
-    def make_test_set(self,test_start_date, test_end_date):
+    def make_test_set(self, test_start_date, test_end_date):
         print('make test set', test_start_date, test_end_date)
         dump_path = os.path.join(self.cache_dir, 'test_set_%s_%s.pkl' % (test_start_date, test_end_date))
         if tf.gfile.Exists(dump_path):
@@ -377,19 +375,23 @@ class Rec():
         train_end_date = '2017-12-31'
         act_start_date = '2018-01-01'
         act_end_date = '2018-01-31'
-    
+
         test_start_date = '2018-01-01'
         test_end_date = '2018-01-31'
         test_act_start_date = '2018-02-01'
         test_act_end_date = '2018-02-29'
-    
+
         X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
         # train_X, train_Y = make_train_set_slide(train_start_date, train_end_date, act_start_date, act_end_date)
         X_test, y_test = self.make_test_set(test_start_date, test_end_date)
-    
+
         print('training...')
         c = Counter(y_train.values)
-        gbm = XGBClassifier(max_depth=5, min_child_weight=6, scale_pos_weight=c[0] / 16 / c[1], nthread=12, seed=0)
+        scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
+        gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=6, gamma=0.3,
+                                subsample=0.7,
+                                colsample_bytree=0.7, objective='binary:logistic', nthread=-1,
+                                scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
         gbm.fit(X_train.values, y_train.values)
 
         y_pre = gbm.predict(X_test)
@@ -412,25 +414,26 @@ class Rec():
         train_end_date = '2017-12-15'
         act_start_date = '2017-12-16'
         act_end_date = '2017-12-31'
-    
+
         test_start_date = '2018-01-01'
         test_end_date = '2018-01-31'
         test_act_start_date = '2018-02-01'
         test_act_end_date = '2018-02-29'
-    
+
         train_X, train_Y = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
         # train_X, train_Y = make_train_set_slide(train_start_date, train_end_date, act_start_date, act_end_date)
         test_index, test_X = self.make_test_set(test_start_date, test_end_date)
-    
+
         print('training...')
         c = Counter(train_Y.values)
-        gbm = XGBClassifier(max_depth=5, min_child_weight=6, scale_pos_weight=c[0] / 16 / c[1], nthread=12, seed=0)
+        gbm = xgb.XGBClassifier(max_depth=5, min_child_weight=6, scale_pos_weight=c[0] / 16 / c[1], nthread=12, seed=0)
         gbm.fit(train_X.values, train_Y.values)
-    
+
         pre_y = gbm.predict_proba(test_X.values)[:, 1]
         res = test_index.copy()
         res['prob'] = pre_y
-    
+
+
 def main(_):
     args_in = sys.argv[1:]
     print(args_in)
@@ -453,9 +456,10 @@ def main(_):
     print('FLAGS')
     print(FLAGS)
     args = parser.parse_args(args_in)
-    
+
     r = Rec(args)
     r.train()
-    
+
+
 if __name__ == '__main__':
     tf.app.run(main=main)
