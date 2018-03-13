@@ -58,24 +58,22 @@ class Rec():
             amt_bins = [1, 1000, 10000, 50000, 100000, 300000, 500000, 1000000, 10000000]
             amt = pd.cut(products['product_price'], amt_bins, labels=amt_grp_names)
             amt.rename('price_group', inplace=True)
-            amt2 = pd.get_dummies(amt, prefix='amt')
+            # amt2 = pd.get_dummies(amt, prefix='amt')
             # seg period
             period_grp = ['1week', '1m', '2m', '3m', '6m', '9m', '12m', '15m', '18m', '24m', '30m', '36m']
             period_bins = [1, 7, 30, 60, 90, 180, 360, 450, 540, 720, 900, 1080, 2160]
             period = pd.cut(products['invest_period_by_days'], period_bins, labels=period_grp)
             period.rename('period_group', inplace=True)
-            period2 = pd.get_dummies(period, prefix='invest_period')
+            # period2 = pd.get_dummies(period, prefix='invest_period')
             products['product_category'] = products['product_category'].astype(str)
             product_category_one_hot = pd.get_dummies(products['product_category'], prefix='cat')
             cmn_product_category_one_hot = pd.get_dummies(products['cmn_product_category'], prefix='cmn_cat')
             item_one_hot = pd.get_dummies(products['item'], prefix='item')
             products = pd.concat(
-                [products, product_category_one_hot, cmn_product_category_one_hot, item_one_hot, amt, period, amt2,
-                 period2], axis=1)
+                [products, product_category_one_hot, cmn_product_category_one_hot, item_one_hot, amt, period], axis=1)
             # products =  pd.concat([products, product_category_one_hot,cmn_product_category_one_hot,item_one_hot,amt,period,amt2,period2], axis=1)
             products['product_group'] = products['price_group'].astype(str) + '_' + products['period_group'].astype(str)
-            products.drop(['product_category', 'cmn_product_category', 'item', 'product_price', 'invest_period_by_days'],
-                          axis=1, inplace=True)
+            # products.drop(['product_category', 'cmn_product_category', 'item', 'product_price', 'invest_period_by_days'],axis=1, inplace=True)
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(products, gf)
 
