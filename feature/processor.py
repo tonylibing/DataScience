@@ -16,6 +16,7 @@ from scipy import sparse
 import scipy.stats.stats as stats
 import xgboost as xgb
 import lightgbm as lgb
+import tensorflow as tf
 from pandas.io.json import json_normalize
 from scipy.sparse import csr_matrix
 from sklearn import metrics
@@ -73,7 +74,7 @@ def ColumnInfo(df, col):
     return col, col_type, df[col].dtype, missing_pct
 
 
-def ColumnSummary(df, label_col='label', id_cols=None):
+def ColumnSummary(df, label_col='label', id_cols=None,dump_path=None):
     column_info = pd.DataFrame([(ColumnInfo(df, col)) for col in tqdm(df.columns.values, desc='Columns Info')])
     column_info.columns = ['col_name', 'ColumnType', 'dtype', 'missing_pct']
     summary = df.describe(include='all').transpose()
@@ -81,12 +82,17 @@ def ColumnSummary(df, label_col='label', id_cols=None):
     # print(summary.columns)
     all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
     all.drop('col_name', axis=1)
-    # all.to_csv('colummn_summary.csv',index=False,header=True)
+    print("Column Summary")
+    print(all)
+    if dump_path is not None:
+        with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+            all.to_csv(gf,index=False,header=True)
+
     return all
 
 
 class FeatureSelection(TransformerMixin):
-    def __init__(self):
+    def __init__(self,args=None):
         self.column_type = None
         self.variance_selector = VarianceThreshold()
         # self.variance_selector = VarianceThreshold(threshold=.001)
@@ -95,14 +101,24 @@ class FeatureSelection(TransformerMixin):
         self.numerical_cols = []
         self.categorical_cols = []
         self.selected_cols = []
+        self.args = None
+        self.data_dir = None
+        self.model_dir = None
+        if args is not None:
+            self.args = args
+            self.data_dir =  self.args.data_dir
+            self.model_dir = self.args.model_dir
 
     def fit(self, X, y):
+        print("X shape:")
+        print(X.shape)
         print("before feature selection")
         print(X.columns.values)
         origin_features = set(X.columns.values)
         print(len(X.columns.values))
         # drop missing too much columns
-        self.column_summary = ColumnSummary(X)
+        summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
+        self.column_summary = ColumnSummary(X,dump_path=summary_path)
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
         drop_cols = self.column_summary[self.column_summary['missing_pct'] > 0.99]['col_name']
 
@@ -117,10 +133,15 @@ class FeatureSelection(TransformerMixin):
                 self.categorical_cols.append(col)
 
         # feature selection
+        print("numerical features:")
         print(self.numerical_cols)
+        print("categorical features:")
         print(self.categorical_cols)
         df_cat = X[self.categorical_cols]
-        df_nonna = X[self.numerical_cols].dropna()
+        df_nonna = X[self.numerical_cols].fillna(0)
+        # df_nonna = X[self.numerical_cols].dropna()
+        print("df_nonna shape:")
+        print(df_nonna.shape)
         y_tmp = y[df_nonna.index]
         # print(df_nonna.index.values)
         # normalize numerical features
@@ -186,7 +207,8 @@ class FeatureEncoder(BaseEstimator):
 
     def fit(self, df):
         # column summary
-        self.column_summary = ColumnSummary(df)
+        summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
+        self.column_summary = ColumnSummary(df,dump_path=summary_path)
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
 
         for col in df.columns.values:

@@ -7,7 +7,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from scipy.sparse import csr_matrix
-
+from wordbatch.models import FTRL, FM_FTRL
 
 class XgboostLRClassifier(BaseEstimator):
     def __init__(self,combine_feature = False,n_estimators=30,learning_rate =0.3,max_depth=3,min_child_weight=1,gamma=0.3,subsample=0.7,colsample_bytree=0.7,objective= 'binary:logistic',nthread=-1,scale_pos_weight=1,reg_alpha=1e-05,reg_lambda=1,seed=27,lr_penalty='l2', lr_c=1.0, lr_random_state=42):
@@ -46,7 +46,7 @@ class XgboostLRClassifier(BaseEstimator):
         self.lr_c = lr_c
         self.lr_random_state = lr_random_state
         print("init lr model")
-        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4,solver='liblinear',random_state=lr_random_state)
+        self.fm_ftrl_model = FM_FTRL(alpha=0.012, beta=0.01, L1=0.00001, L2=0.1, alpha_fm=0.01, L2_fm=0.0, init_fm=0.01, D_fm=20, e_noise=0.0001, iters=3000, inv_link="identity", threads=4)
         #numerical feature binner
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
@@ -124,9 +124,9 @@ class XgboostLRClassifier(BaseEstimator):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
         # generate new feature with partial data
         X_train2, y_train2, X_test2, y_test2 = self.fit_model(X_train, y_train, X_test, y_test)
-        self.lr_model.fit(X_train2, y_train2)
-        y_pre = self.lr_model.predict(X_test2)
-        y_pro = self.lr_model.predict_proba(X_test2)[:, 1]
+        self.fm_ftrl_model.fit(X_train2, y_train2)
+        y_pre = self.fm_ftrl_model.predict(X_test2)
+        y_pro = self.fm_ftrl_model.predict_proba(X_test2)[:, 1]
         print("Xgboost+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
         print("Xgboost+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
         return self
@@ -138,11 +138,11 @@ class XgboostLRClassifier(BaseEstimator):
 
     def predict(self, X):
         test1 = self.transform(X)
-        return self.lr_model.predict(test1)
+        return self.fm_ftrl_model.predict(test1)
 
     def predict_proba(self, X):
         test1 = self.transform(X)
-        return self.lr_model.predict_proba(test1)
+        return self.fm_ftrl_model.predict_proba(test1)
 
 class LightgbmLRClassifier(BaseEstimator):
     def __init__(self, combine_feature = False,n_estimators=30, learning_rate=0.3, max_depth=3, min_child_weight=1, gamma=0.3,
@@ -184,8 +184,7 @@ class LightgbmLRClassifier(BaseEstimator):
         self.lr_c = lr_c
         self.lr_random_state = lr_random_state
         print("init lr model")
-        self.lr_model = LogisticRegression(C=lr_c, penalty=lr_penalty, tol=1e-4, solver='liblinear',
-                                           random_state=lr_random_state)
+        self.fm_ftrl_model = FM_FTRL(alpha=0.012, beta=0.01, L1=0.00001, L2=0.1, alpha_fm=0.01, L2_fm=0.0, init_fm=0.01, D_fm=20, e_noise=0.0001, iters=3000, inv_link="identity", threads=4)
         # numerical feature binner
         self.one_hot_encoder = OneHotEncoder()
         self.numerical_feature_processor = None
@@ -264,9 +263,9 @@ class LightgbmLRClassifier(BaseEstimator):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=999)
         # generate new feature with partial data
         X_train2, y_train2, X_test2, y_test2 = self.fit_model(X_train, y_train, X_test, y_test)
-        self.lr_model.fit(X_train2, y_train2)
-        y_pre = self.lr_model.predict(X_test2)
-        y_pro = self.lr_model.predict_proba(X_test2)[:, 1]
+        self.fm_ftrl_model.fit(X_train2, y_train2)
+        y_pre = self.fm_ftrl_model.predict(X_test2)
+        y_pro = self.fm_ftrl_model.predict_proba(X_test2)[:, 1]
         print("Lightgbm+LR Training AUC Score : {0}".format(metrics.roc_auc_score(y_test2, y_pro)))
         print("Lightgbm+LR  Training Accuracy : {0}".format(metrics.accuracy_score(y_test2, y_pre)))
         return self
@@ -278,8 +277,8 @@ class LightgbmLRClassifier(BaseEstimator):
 
     def predict(self, X):
         test1 = self.transform(X)
-        return self.lr_model.predict(test1)
+        return self.fm_ftrl_model.predict(test1)
 
     def predict_proba(self, X):
         test1 = self.transform(X)
-        return self.lr_model.predict_proba(test1)
+        return self.fm_ftrl_model.predict_proba(test1)

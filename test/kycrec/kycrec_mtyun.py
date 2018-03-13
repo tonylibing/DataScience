@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 import os
 import sys
+import psutil
 import argparse
 import pickle
+import scipy
 from sklearn.datasets import dump_svmlight_file
 from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score, f1_score, accuracy_score, \
     average_precision_score, log_loss
@@ -16,8 +18,11 @@ import tensorflow as tf
 
 from collections import Counter
 
-# data_dir = "E:\\dataset\\kycdata"
-# cache_dir = "E:\\dataset\\kycdata\\cache"
+sys.path.append("../..")
+import feature.processor
+from importlib import reload
+reload(feature.processor)
+from feature.processor import *
 
 FLAGS = None
 
@@ -384,22 +389,36 @@ class Rec():
         X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
         # train_X, train_Y = make_train_set_slide(train_start_date, train_end_date, act_start_date, act_end_date)
         X_test, y_test = self.make_test_set(test_start_date, test_end_date)
+        info = psutil.virtual_memory()
+        print('='*60)
+        print(info)
+        print('='*60)
+        print(psutil.Process(os.getpid()).memory_info().rss)
 
         print('training...')
         c = Counter(y_train.values)
         scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
+        sl = FeatureSelection(self.args)
+        sl.fit(X_train, y_train)
+        X = sl.transform(X_train)
+        bfp = FeatureEncoder(self.args)
+        feature_matrix = bfp.fit_transform(X)
+        dump_path = os.path.join(self.cache_dir, 'rec_data_train_feature_matrix.npz')
+        with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+            scipy.sparse.save_npz(gf, feature_matrix)
+
+        print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))
+        print("test set y=1:{0}".format(y_test[y_test == 1].shape[0]))
+
         gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=6, gamma=0.3,
                                 subsample=0.7,
                                 colsample_bytree=0.7, objective='binary:logistic', nthread=-1,
                                 scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
-        gbm.fit(X_train.values, y_train.values)
+        gbm.fit(X_train, y_train)
 
         y_pre = gbm.predict(X_test)
-        # y_pre_leaf = gbm.predict(X_test,pred_leaf=True)
-        # print(y_pre_leaf.shape)
         y_pro = gbm.predict_proba(X_test)[:, 1]
         print("=" * 60)
-        # print("Xgboost model Training AUC Score: {0}".format(roc_auc_score(y_train, y_pro2)))
         print("Xgboost model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
         print("Xgboost model Test Precision: {0}".format(precision_score(y_test, y_pre)))
         print("Xgboost model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
@@ -459,7 +478,6 @@ def main(_):
 
     r = Rec(args)
     r.train()
-
 
 if __name__ == '__main__':
     tf.app.run(main=main)
