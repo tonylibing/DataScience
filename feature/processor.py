@@ -4,6 +4,7 @@ import json
 import numbers
 import random
 import time
+import os
 import sys
 import operator
 from tqdm import tqdm
@@ -127,7 +128,7 @@ class FeatureSelection(TransformerMixin):
         df_norm = pd.DataFrame(self.scaler.fit_transform(df_nonna), columns=self.numerical_cols)
         df_numerical = self.variance_selector.fit_transform(df_norm)
         idxs_selected = self.variance_selector.get_support(indices=True)
-        print("variance threshold:")
+        print("feature selected by > variance threshold:")
         print(df_nonna.columns[idxs_selected])
         print(len(df_nonna.columns[idxs_selected]))
         self.selected_cols = list(df_nonna.columns[idxs_selected]) + self.categorical_cols
@@ -166,8 +167,7 @@ class FeatureEncoder(BaseEstimator):
     6. feature union
     7. to sparse feature matrix or dense
     """
-
-    def __init__(self):
+    def __init__(self,args=None):
         self.column_type = None
         self.feature_matrix = None
         self.feature_processors = []
@@ -176,6 +176,13 @@ class FeatureEncoder(BaseEstimator):
         self.feature_names = {}
         self.numerical_cols = []
         self.categorical_cols = []
+        self.args = None
+        self.data_dir = None
+        self.model_dir = None
+        if args is not None:
+            self.args = args
+            self.data_dir =  self.args.data_dir
+            self.model_dir = self.args.model_dir
 
     def fit(self, df):
         # column summary

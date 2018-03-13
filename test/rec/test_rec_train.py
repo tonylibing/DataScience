@@ -25,6 +25,7 @@ import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
 from model.GBDTLRClassifier import *
+from wordbatch.models import FTRL, FM_FTRL
 
 sampling_flag = True
 if sampling_flag:
@@ -138,6 +139,46 @@ data = {"y_test": y_test, "y_pro": y_pro}
 df = pd.DataFrame(data)
 df.to_csv("~/dataset/lr_y_test_pro.csv", index=False, header=True)
 
+
+ftrl = FTRL(alpha=0.01, beta=0.1, L1=0.00001, L2=1.0,  iters=15, inv_link="identity", threads=4)
+ftrl.fit(X_train, y_train)
+# y_pre = ftrl.predict(X_test)
+y_pro = ftrl.predict(X_test)
+print("=" * 60)
+print("FTRL Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
+# print("FTRL Test Precision: {0}".format(precision_score(y_test, y_pre)))
+# print("FTRL Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+# print("FTRL Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
+print("FTRL Test Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
+print("FTRL Test Test logloss: {0}".format(log_loss(y_test, y_pro)))
+print("FTRL KS: {0}".format(ks_statistic(y_test, y_pro)))
+# print("FTRL Test confusion_matrix :")
+# print(confusion_matrix(y_test, y_pre))
+print("=" * 60)
+data = {"y_test": y_test, "y_pro": y_pro}
+df = pd.DataFrame(data)
+df.to_csv("~/dataset/ftrl_y_test_pro.csv", index=False, header=True)
+
+fm_ftrl = FM_FTRL(alpha=0.012, beta=0.01, L1=0.00001, L2=0.1,alpha_fm=0.01, L2_fm=0.0, init_fm=0.01,D_fm=50, e_noise=0.0001, iters=15, inv_link="identity", threads=4)
+fm_ftrl.fit(X_train, y_train)
+# y_pre = fm_ftrl.predict(X_test)
+y_pro = fm_ftrl.predict(X_test)
+print("=" * 60)
+print("FM_FTRL Test AUC Score : {0}".format(roc_auc_score(y_test, y_pro)))
+# print("FM_FTRL Test Precision: {0}".format(precision_score(y_test, y_pre)))
+# print("FM_FTRL Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+# print("FM_FTRL Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
+print("FM_FTRL Test Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
+print("FM_FTRL Test Test logloss: {0}".format(log_loss(y_test, y_pro)))
+print("FM_FTRL KS: {0}".format(ks_statistic(y_test, y_pro)))
+# print("FM_FTRL Test confusion_matrix :")
+# print(confusion_matrix(y_test, y_pre))
+print("=" * 60)
+data = {"y_test": y_test, "y_pro": y_pro}
+df = pd.DataFrame(data)
+df.to_csv("~/dataset/fm_ftrl_y_test_pro.csv", index=False, header=True)
+
+
 gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=1, gamma=0.3, subsample=0.7,
                         colsample_bytree=0.7, objective='binary:logistic', nthread=-1,
                         scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
@@ -236,3 +277,4 @@ fi = list(zip(list(range(len(fi))), fi))
 fi = sorted(fi, key=lambda tup: tup[1], reverse=True)
 for idx, importance in fi:
     print("{0}:{1}".format(idx2featurename[idx], importance))
+
