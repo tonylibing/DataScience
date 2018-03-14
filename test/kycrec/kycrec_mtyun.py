@@ -26,7 +26,12 @@ from feature.processor import *
 
 FLAGS = None
 
-
+def check_col(user_feats,cols):
+    for col in cols:
+        s = user_feats[user_feats[col].astype(str).str.contains('‰')]
+        if s.size>0:
+            print(col)
+        
 class Rec():
     def __init__(self, args):
         self.args = args
@@ -51,6 +56,10 @@ class Rec():
             with tf.gfile.FastGFile(user_feat_dir, 'rb') as gf:
                 user_feats = pd.read_csv(gf)
 
+            mod = user_feats['education_cd'].mode()[0]
+            user_feats['education_cd'].replace('‰', mod, inplace=True)
+            mod = user_feats['marriage_status_cd'].mode()[0]
+            user_feats['marriage_status_cd'].replace('@', mod, inplace=True)
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(user_feats, gf)
 
@@ -376,6 +385,7 @@ class Rec():
         # return index, test_set
 
     def train(self):
+        start_time = time.time()
         train_start_date = '2017-12-01'
         train_end_date = '2017-12-31'
         act_start_date = '2018-01-01'
@@ -387,35 +397,44 @@ class Rec():
         test_act_end_date = '2018-02-29'
 
         X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
-        # train_X, train_Y = make_train_set_slide(train_start_date, train_end_date, act_start_date, act_end_date)
-        X_test, y_test = self.make_test_set(test_start_date, test_end_date)
         info = psutil.virtual_memory()
         print('='*60)
         print(info)
         print('='*60)
         print(psutil.Process(os.getpid()).memory_info().rss)
 
-        print('training...')
         c = Counter(y_train.values)
         scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
         sl = FeatureSelection(self.args)
         sl.fit(X_train, y_train)
         X = sl.transform(X_train)
+        del(X_train)
+        gc.collect()
         bfp = FeatureEncoder(self.args)
         feature_matrix = bfp.fit_transform(X)
+        del(X)
+        gc.collect()
         dump_path = os.path.join(self.cache_dir, 'rec_data_train_feature_matrix.npz')
         with tf.gfile.FastGFile(dump_path, 'wb') as gf:
             scipy.sparse.save_npz(gf, feature_matrix)
 
-        print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))
-        print("test set y=1:{0}".format(y_test[y_test == 1].shape[0]))
-
+        #xgboost
         gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=6, gamma=0.3,
                                 subsample=0.7,
                                 colsample_bytree=0.7, objective='binary:logistic', nthread=-1,
                                 scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
-        gbm.fit(X_train, y_train)
-
+        print('training...')
+        print("test set y=0:{0}".format(y_train[y_train == 0].shape[0]))
+        print("test set y=1:{0}".format(y_train[y_train == 1].shape[0]))
+        gbm.fit(feature_matrix, y_train)
+        print('[{}] Train FTRL completed'.format(time.time() - start_time))
+        del(feature_matrix)
+        del(y_train)
+        gc.collect()
+        #test
+        X_test, y_test = self.make_test_set(test_start_date, test_end_date)
+        print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))
+        print("test set y=1:{0}".format(y_test[y_test == 1].shape[0]))
         y_pre = gbm.predict(X_test)
         y_pro = gbm.predict_proba(X_test)[:, 1]
         print("=" * 60)
@@ -427,6 +446,30 @@ class Rec():
         print("Xgboost model Test logloss: {0}".format(log_loss(y_test, y_pro)))
         print("Xgboost Test confusion_matrix :")
         print(confusion_matrix(y_test, y_pre))
+
+
+        del(gbm)
+        del(y_pre)
+        del(y_pro)
+        #lightgbm
+        lgbm = lgb.LGBMClassifier(boosting_type='gbdt', max_depth=4, learning_rate=0.3, n_estimators=30,
+                                  scale_pos_weight=scale_pos_weight, min_child_weight=1, subsample=0.7,
+                                  colsample_bytree=0.7,
+                                  reg_alpha=1e-05, reg_lambda=1)
+        lgbm.fit(X_train, y_train)
+        y_pre = lgbm.predict(X_test)
+        y_pro = lgbm.predict_proba(X_test)[:, 1]
+        print("=" * 60)
+        print("lightgbm model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
+        print("lightgbm model Test Precision: {0}".format(precision_score(y_test, y_pre)))
+        print("lightgbm model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+        print("lightgbm model Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
+        print("lightgbm model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
+        print("lightgbm model Test logloss: {0}".format(log_loss(y_test, y_pro)))
+        print("Lightgbm Test confusion_matrix :")
+        print(confusion_matrix(y_test, y_pre))
+
+
 
     def train_sm(self):
         train_start_date = '2017-12-01'

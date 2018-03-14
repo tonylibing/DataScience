@@ -6,6 +6,7 @@ import random
 import time
 import os
 import sys
+import gc
 import operator
 from tqdm import tqdm
 from collections import defaultdict
@@ -37,15 +38,26 @@ from sklearn.preprocessing import normalize
 from sklearn.preprocessing import RobustScaler
 from sklearn.svm import LinearSVC
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from collections import Counter
 
+def ColumnStats(df,cols):
+    for col in cols:
+        values = list(df[col].fillna('missing').value_counts().loc[lambda x: x.index != 'missing'].index)
+        type_list = [type(i) for i in values]
+        type_cnt = Counter(type_list)
+        if len(type_cnt)>1:
+            print('{} has multiple data types'.format(col))
+            print(type_cnt)
 
 def ColumnInfo(df, col):
     print(col)
     col_type = ''
     missing_pct = 0.0
-    rows = np.random.choice(df.index.values, 1000)
-    df_sample = df.ix[rows][col]
+    # rows = np.random.choice(df.index.values, 1000)
+    # df_sample = df.ix[rows][col]
+    df_sample = df[col].dropna()
     uniq_vals = list(set(df_sample))
+    del(df_sample)
     if np.nan in uniq_vals:
         uniq_vals.remove(np.nan)
 
@@ -54,7 +66,8 @@ def ColumnInfo(df, col):
     elif col.endswith('_id'):
         col_type = 'id'
         # col_type = 'categorical'
-    elif col.startswith('dayOf') or col.startswith('hourOf') or ('category' in col) or ('level' in col) or (
+        # or ('level' in col)
+    elif col.startswith('dayOf') or col.startswith('hourOf') or col.startswith('is_') or ('category' in col)  or (
                 'flag' in col) or ('version' in col):
         col_type = 'categorical'
     elif isinstance(uniq_vals[0], float):
@@ -81,6 +94,9 @@ def ColumnSummary(df, label_col='label', id_cols=None,dump_path=None):
     summary = summary.reset_index()
     # print(summary.columns)
     all = pd.merge(summary, column_info, left_on='index', right_on='col_name')
+    del(summary)
+    del(column_info)
+    gc.collect()
     all.drop('col_name', axis=1)
     print("Column Summary")
     print(all)
