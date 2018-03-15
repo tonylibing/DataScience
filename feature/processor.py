@@ -254,9 +254,7 @@ class FeatureEncoder(BaseEstimator):
 
         # StandardScaler
         # print("normalize numerical features:{0}".format(self.numerical_cols))
-        # self.scaler.fit(self.df[self.numerical_cols])
-        # df_numerical = self.scaler.transform(self.df[self.numerical_cols])
-        # self.df = pd.concat([self.df[self.categorical_cols],df_numerical],axis=1)
+        self.scaler.fit(self.df[self.numerical_cols])
 
         print("=" * 60)
         print("feature_offset:{0}".format(self.feature_offset))
@@ -306,7 +304,12 @@ class FeatureEncoder(BaseEstimator):
             fp.transform(df)
 
         print("persist to libsvm file:{}".format(dump_name))
+        df_numerical = self.scaler.transform(df[self.numerical_cols])
+        df = pd.concat([df[self.categorical_cols],df_numerical],axis=1)
         df_tmp = df[self.feature_name]
+        del(df_numerical)
+        del(df)
+        gc.collect()
         dump_path = os.path.join(self.cache_dir,dump_name)
         with tf.gfile.FastGFile(dump_path, 'wb') as gf:
             for i, v in df_tmp.iterrows():

@@ -153,6 +153,24 @@ class Rec():
                 pickle.dump(samples, gf)
         return samples
 
+    def gen_million_sample(self, start_date, end_date):
+        print('get interactive users', start_date, end_date)
+        # start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span)
+        # start_date = start_date.strftime('%Y-%m-%d')
+        dump_path = os.path.join(self.cache_dir, 'samples_%s_%s.pkl' % (start_date, end_date))
+        if tf.gfile.Exists(dump_path):
+            with tf.gfile.FastGFile(dump_path, 'rb') as gf:
+                samples = pickle.load(gf)
+        else:
+            actions = self.get_browse(start_date, end_date)
+            samples = actions.groupby(['user_id', 'product_group']).size().reset_index()
+            samples = samples[samples['product_group'].str.contains('100w')][['user_id','product_group']]
+            # samples = actions[['user_id']].drop_duplicates()
+            print('samples num is:', samples.shape[0])
+            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+                pickle.dump(samples, gf)
+        return samples
+
     def user_browse_feature(self, start_date, end_date):
         print('gen user browse features', start_date, end_date)
         browse_feat = None
@@ -362,20 +380,21 @@ class Rec():
 
         return X, y
 
-    def make_test_set(self, test_start_date, test_end_date):
+    def make_test_set(self, test_start_date, test_end_date,test_act_start_date,test_act_end_date):
         print('make test set', test_start_date, test_end_date)
         dump_path = os.path.join(self.cache_dir, 'test_set_%s_%s.pkl' % (test_start_date, test_end_date))
         if tf.gfile.Exists(dump_path):
             with tf.gfile.FastGFile(dump_path, 'rb') as gf:
                 test_set = pickle.load(gf)
         else:
-            test_set = self.gen_sample(test_start_date, test_end_date)
+            # test_set = self.gen_sample(test_start_date, test_end_date)
+            test_set = self.gen_million_sample(test_start_date, test_end_date)
             browse_feat = self.user_browse_feature(test_start_date, test_end_date)
             invest_feat = self.user_invest_feature(test_start_date, test_end_date)
             user_feat = self.user_feat()
             print(user_feat.columns)
             test_set = pd.merge(test_set, user_feat, how='left', on='user_id')
-            labels = self.gen_labels(test_start_date, test_end_date)
+            labels = self.gen_labels(test_act_start_date,test_act_end_date)
             test_set = pd.merge(test_set, invest_feat, how='left', on=['user_id', 'product_group'])
             test_set = pd.merge(test_set, browse_feat, how='left', on=['user_id', 'product_group'])
             test_set = pd.merge(test_set, labels, how='left', on=['user_id', 'product_group'])
@@ -401,7 +420,7 @@ class Rec():
         # print(test_set.columns)
         # return index, test_set
 
-    def train(self):
+    def gen_test(self):
         train_start_date = '2017-12-01'
         train_end_date = '2017-12-31'
         act_start_date = '2018-01-01'
@@ -419,6 +438,57 @@ class Rec():
                 sl = pickle.load(gf)
             with tf.gfile.FastGFile(feat_encoder_path, 'rb') as gf:
                 bfp = pickle.load(gf)
+
+        X_test, y_test = self.make_test_set(test_start_date, test_end_date,test_act_start_date,test_act_end_date)
+        X = sl.transform(X_test)
+        del (X_test)
+        test_path = os.path.join(self.cache_dir, 'feature_matrix_test.libsvm')
+        if not tf.gfile.Exists(test_path):
+            bfp.transform(X, y_test, 'feature_matrix_test.libsvm')
+            del (X)
+            gc.collect()
+
+    def dump_model(self):
+        train_start_date = '2017-12-01'
+        train_end_date = '2017-12-31'
+        act_start_date = '2018-01-01'
+        act_end_date = '2018-01-31'
+
+        sl = FeatureSelection(self.args)
+        bfp = FeatureEncoder(self.args)
+        feat_sel_path = os.path.join(self.cache_dir, 'feat_sel.pkl')
+        feat_encoder_path = os.path.join(self.cache_dir, 'feat_encoder.pkl')
+        X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
+        print("train set y=0:{0}".format(y_train[y_train == 0].shape[0]))
+        print("train set y=1:{0}".format(y_train[y_train == 1].shape[0]))
+
+        sl.fit(X_train, y_train)
+        X = sl.transform(X_train)
+        del (X_train)
+
+        bfp.fit_transform(X, y_train, 'feature_matrix.libsvm')
+        with tf.gfile.FastGFile(feat_sel_path, 'wb') as gf:
+            pickle.dump(sl, gf)
+        with tf.gfile.FastGFile(feat_encoder_path, 'wb') as gf:
+            pickle.dump(bfp, gf)
+
+    def train(self):
+        train_start_date = '2017-12-01'
+        train_end_date = '2017-12-31'
+        act_start_date = '2018-01-01'
+        act_end_date = '2018-01-31'
+
+        test_start_date = '2018-01-01'
+        test_end_date = '2018-01-31'
+        test_act_start_date = '2018-02-01'
+        test_act_end_date = '2018-02-29'
+        feat_sel_path = os.path.join(self.cache_dir, 'feat_sel.pkl')
+        feat_encoder_path = os.path.join(self.cache_dir, 'feat_encoder.pkl')
+        if tf.gfile.Exists(feat_sel_path) and tf.gfile.Exists(feat_encoder_path):
+            with tf.gfile.FastGFile(feat_sel_path, 'rb') as gf:
+                sl = pickle.load(gf)
+            with tf.gfile.FastGFile(feat_encoder_path, 'rb') as gf:
+                bfp = pickle.load(gf)
         else:
             sl = FeatureSelection(self.args)
             bfp = FeatureEncoder(self.args)
@@ -429,30 +499,36 @@ class Rec():
             pass
         else:
             X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
+            print("train set y=0:{0}".format(y_train[y_train == 0].shape[0]))
+            print("train set y=1:{0}".format(y_train[y_train == 1].shape[0]))
             info = psutil.virtual_memory()
             print('='*60)
             print(info)
             print('='*60)
             print(psutil.Process(os.getpid()).memory_info().rss)
+            scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
 
             sl.fit(X_train, y_train)
             X = sl.transform(X_train)
             del(X_train)
+
+            if not tf.gfile.Exists(train_path):
+                bfp.fit_transform(X,y_train,'feature_matrix.libsvm')
+                del(X)
+                gc.collect()
 
             with tf.gfile.FastGFile(feat_sel_path, 'wb') as gf:
                 pickle.dump(sl,gf)
             with tf.gfile.FastGFile(feat_encoder_path, 'wb') as gf:
                 pickle.dump(bfp,gf)
 
-            bfp.fit_transform(X,y_train,'feature_matrix.libsvm')
-            del(X)
-            gc.collect()
-            X_test, y_test = self.make_test_set(test_start_date, test_end_date)
+            X_test, y_test = self.make_test_set(test_start_date, test_end_date,test_act_start_date,test_act_end_date)
             X = sl.transform(X_test)
             del(X_test)
-            bfp.transform(X,y_test,'feature_matrix_test.libsvm')
-            del(X)
-            gc.collect()
+            if not tf.gfile.Exists(test_path):
+                bfp.transform(X,y_test,'feature_matrix_test.libsvm')
+                del(X)
+                gc.collect()
 
         cores = multiprocessing.cpu_count()
         threads = int(cores*0.8)
@@ -461,13 +537,11 @@ class Rec():
             start_time = time.time()
             dtrain = xgb.DMatrix(train_path)
             dtest = xgb.DMatrix(test_path)
-            scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
+
             gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=6, gamma=0.3,subsample=0.7,
                                 colsample_bytree=0.7, objective='binary:logistic', nthread=threads,
                                 scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
             print('training...')
-            print("test set y=0:{0}".format(y_train[y_train == 0].shape[0]))
-            print("test set y=1:{0}".format(y_train[y_train == 1].shape[0]))
             gbm.fit(dtrain,label=y_train)
             print('[{}] Train xgboost completed'.format(time.time() - start_time))
             y_pre = gbm.predict(dtest)
@@ -494,8 +568,6 @@ class Rec():
                                       reg_alpha=1e-05, reg_lambda=1)
             lgbm.fit(dtrain, y_train)
             print('training...')
-            print("test set y=0:{0}".format(y_train[y_train == 0].shape[0]))
-            print("test set y=1:{0}".format(y_train[y_train == 1].shape[0]))
             lgbm.fit(dtrain,label=y_train)
             print('[{}] Train xgboost completed'.format(time.time() - start_time))
             y_pre = lgbm.predict(dtest)
@@ -544,7 +616,7 @@ def main(_):
                            help='input data path')
     mtyunArgs.add_argument('--model_dir', type=str, default='',
                            help='output model path')
-    mtyunArgs.add_argument('--model_type', type=str, default='xgb',
+    mtyunArgs.add_argument('--model_type', type=str, default='lgb',
                            help='model type str')
     mtyunArgs.add_argument('--tf_fs', type=str, default='', help='output model path')
     mtyunArgs.add_argument('--tf_prefix', type=str, default='', help='output model path')
@@ -561,7 +633,9 @@ def main(_):
     args = parser.parse_args(args_in)
 
     r = Rec(args)
-    r.train()
+    r.dump_model()
+    # r.gen_test()
+    # r.train()
 
 if __name__ == '__main__':
     tf.app.run(main=main)
