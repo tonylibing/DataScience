@@ -145,7 +145,9 @@ class Rec():
                 samples = pickle.load(gf)
         else:
             actions = self.get_browse(start_date, end_date)
-            samples = actions[['user_id']].drop_duplicates()
+            samples = actions.groupby(['user_id', 'product_group']).size().reset_index()
+            samples = samples[['user_id','product_group']]
+            # samples = actions[['user_id']].drop_duplicates()
             print('samples num is:', samples.shape[0])
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(samples, gf)
@@ -306,9 +308,12 @@ class Rec():
             print(browse_feat.columns)
             print(invest_feat.columns)
             train_set = pd.merge(browse_feat, invest_feat, how='left', on=['user_id', 'product_group'])
+            del(browse_feat)
+            del(invest_feat)
             user_feat = self.user_feat()
             print(user_feat.columns)
             train_set = pd.merge(train_set, user_feat, how='left', on='user_id')
+            del(user_feat)
             # train_set = pd.merge(train_set, user, how='left', on='user_id')
             # train_set = pd.merge(train_set, user_acc, how='left', on='product_id')
             # product_features = self.product_feat()
@@ -316,6 +321,8 @@ class Rec():
             # train_set = pd.merge(train_set, product_acc, how='left', on='product_id')
             labels = self.gen_labels(test_start_date, test_end_date)
             train_set = pd.merge(train_set, labels, how='left', on=['user_id', 'product_group'])
+            del(labels)
+            gc.collect()
             train_set['label'].fillna(0, inplace=True)
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(train_set, gf)
@@ -369,8 +376,14 @@ class Rec():
             print(user_feat.columns)
             test_set = pd.merge(test_set, user_feat, how='left', on='user_id')
             labels = self.gen_labels(test_start_date, test_end_date)
-            test_set = pd.merge(browse_feat, invest_feat, how='left', on=['user_id', 'product_group'])
+            test_set = pd.merge(test_set, invest_feat, how='left', on=['user_id', 'product_group'])
+            test_set = pd.merge(test_set, browse_feat, how='left', on=['user_id', 'product_group'])
             test_set = pd.merge(test_set, labels, how='left', on=['user_id', 'product_group'])
+            del(browse_feat)
+            del(invest_feat)
+            del(user_feat)
+            del(labels)
+            gc.collect()
             test_set.fillna(0, inplace=True)
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(test_set, gf)
@@ -379,7 +392,7 @@ class Rec():
         del test_set['user_id']
         del test_set['product_group']
         del test_set['label']
-        print('train set cols:')
+        print('test set cols:')
         print(test_set.columns)
         return test_set, labels
         # index = test_set[['user_id']].copy()
@@ -399,51 +412,70 @@ class Rec():
         test_act_start_date = '2018-02-01'
         test_act_end_date = '2018-02-29'
 
-        X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
-        X_test, y_test = self.make_test_set(test_start_date, test_end_date)
-        info = psutil.virtual_memory()
-        print('='*60)
-        print(info)
-        print('='*60)
-        print(psutil.Process(os.getpid()).memory_info().rss)
+        feat_sel_path = os.path.join(self.cache_dir, 'feat_sel.pkl')
+        feat_encoder_path = os.path.join(self.cache_dir, 'feat_encoder.pkl')
+        if tf.gfile.Exists(feat_sel_path) and tf.gfile.Exists(feat_encoder_path):
+            with tf.gfile.FastGFile(feat_sel_path, 'rb') as gf:
+                sl = pickle.load(gf)
+            with tf.gfile.FastGFile(feat_encoder_path, 'rb') as gf:
+                bfp = pickle.load(gf)
+        else:
+            sl = FeatureSelection(self.args)
+            bfp = FeatureEncoder(self.args)
 
-        c = Counter(y_train.values)
-        scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
-        sl = FeatureSelection(self.args)
-        sl.fit(X_train, y_train)
-        X = sl.transform(X_train)
-        del(X_train)
-        gc.collect()
-        bfp = FeatureEncoder(self.args)
-        feature_matrix = bfp.fit_transform(X)
-        del(X)
-        gc.collect()
-        dump_path = os.path.join(self.cache_dir, 'rec_data_train_feature_matrix.npz')
-        with tf.gfile.FastGFile(dump_path, 'wb') as gf:
-            scipy.sparse.save_npz(gf, feature_matrix)
+        train_path = os.path.join(self.cache_dir, 'feature_matrix.libsvm')
+        test_path = os.path.join(self.cache_dir, 'feature_matrix_test.libsvm')
+        if tf.gfile.Exists(train_path) and tf.gfile.Exists(test_path):
+            pass
+        else:
+            X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
+            info = psutil.virtual_memory()
+            print('='*60)
+            print(info)
+            print('='*60)
+            print(psutil.Process(os.getpid()).memory_info().rss)
+
+            c = Counter(y_train.values)
+            scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
+
+            sl.fit(X_train, y_train)
+            X = sl.transform(X_train)
+            del(X_train)
+
+            with tf.gfile.FastGFile(feat_sel_path, 'wb') as gf:
+                pickle.dump(sl,gf)
+            with tf.gfile.FastGFile(feat_encoder_path, 'wb') as gf:
+                pickle.dump(bfp,gf)
+
+            bfp.fit_transform(X,y_train,'feature_matrix.libsvm')
+            del(X)
+            gc.collect()
+            dtrain = xgb.DMatrix(train_path)
+            X_test, y_test = self.make_test_set(test_start_date, test_end_date)
+            X = sl.transform(X_test)
+            del(X_test)
+            bfp.transform(X,y_test,'feature_matrix_test.libsvm')
+            del(X)
+            gc.collect()
+            dtest = xgb.DMatrix(test_path)
 
         cores = multiprocessing.cpu_count()
         threads = int(cores*0.8)
-        #xgboost
         if self.model_type=='xgb':
             print("=" * 60)
             start_time = time.time()
-            gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=6, gamma=0.3,
-                                    subsample=0.7,
-                                    colsample_bytree=0.7, objective='binary:logistic', nthread=threads,
-                                    scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
+            dtrain = xgb.DMatrix(train_path)
+            dtest = xgb.DMatrix(test_path)
+            gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=6, gamma=0.3,subsample=0.7,
+                                colsample_bytree=0.7, objective='binary:logistic', nthread=threads,
+                                scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
             print('training...')
             print("test set y=0:{0}".format(y_train[y_train == 0].shape[0]))
             print("test set y=1:{0}".format(y_train[y_train == 1].shape[0]))
-            gbm.fit(feature_matrix, y_train)
-            print('[{}] Train FTRL completed'.format(time.time() - start_time))
-            # del(feature_matrix)
-            # del(y_train)
-            # gc.collect()
-            print("test set y=0:{0}".format(y_test[y_test == 0].shape[0]))
-            print("test set y=1:{0}".format(y_test[y_test == 1].shape[0]))
-            y_pre = gbm.predict(X_test)
-            y_pro = gbm.predict_proba(X_test)[:, 1]
+            gbm.fit(dtrain,label=y_train)
+            print('[{}] Train xgboost completed'.format(time.time() - start_time))
+            y_pre = gbm.predict(dtest)
+            y_pro = gbm.predict_proba(dtest)
             print("Xgboost model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
             print("Xgboost model Test Precision: {0}".format(precision_score(y_test, y_pre)))
             print("Xgboost model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
@@ -455,49 +487,57 @@ class Rec():
             del(gbm)
             del(y_pre)
             del(y_pro)
-        elif self.model_type=='lgb':
-            #lightgbm
+        elif self.model_type == 'lgb':
             print("=" * 60)
             start_time = time.time()
+            dtrain = lgb.Dataset(train_path)
+            dtest = lgb.Dataset(test_path)
             lgbm = lgb.LGBMClassifier(boosting_type='gbdt', max_depth=4, learning_rate=0.3, n_estimators=30,
                                       scale_pos_weight=scale_pos_weight, min_child_weight=1, subsample=0.7,
                                       colsample_bytree=0.7,
                                       reg_alpha=1e-05, reg_lambda=1)
-            lgbm.fit(feature_matrix, y_train)
-            print('[{}] Train FTRL completed'.format(time.time() - start_time))
-            y_pre = lgbm.predict(X_test)
-            y_pro = lgbm.predict_proba(X_test)[:, 1]
-            print("lightgbm model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
-            print("lightgbm model Test Precision: {0}".format(precision_score(y_test, y_pre)))
-            print("lightgbm model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
-            print("lightgbm model Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
-            print("lightgbm model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
-            print("lightgbm model Test logloss: {0}".format(log_loss(y_test, y_pro)))
-            print("Lightgbm Test confusion_matrix :")
+            lgbm.fit(dtrain, y_train)
+            print('training...')
+            print("test set y=0:{0}".format(y_train[y_train == 0].shape[0]))
+            print("test set y=1:{0}".format(y_train[y_train == 1].shape[0]))
+            lgbm.fit(dtrain,label=y_train)
+            print('[{}] Train xgboost completed'.format(time.time() - start_time))
+            y_pre = lgbm.predict(dtest)
+            y_pro = lgbm.predict_proba(dtest)
+            print("Xgboost model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
+            print("Xgboost model Test Precision: {0}".format(precision_score(y_test, y_pre)))
+            print("Xgboost model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+            print("Xgboost model Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
+            print("Xgboost model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
+            print("Xgboost model Test logloss: {0}".format(log_loss(y_test, y_pro)))
+            print("Xgboost Test confusion_matrix :")
             print(confusion_matrix(y_test, y_pre))
-        elif self.model_type=='fm':
-            print("=" * 60)
-            start_time = time.time()
-            fm = xl.FMModel()
-            fm.fit(feature_matrix,y_train)
-            print('[{}] Train xl FM completed'.format(time.time() - start_time))
-            y_pro = fm.predict(X_test)
-            print("xl FM model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
-            print("xl FM model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
-            print("xl FM model Test logloss: {0}".format(log_loss(y_test, y_pro)))
-            print("xl FM Test confusion_matrix :")
-        elif self.model_type=='wb':
-            print("=" * 60)
-            start_time = time.time()
-            fm_ftrl = FM_FTRL(alpha=0.012, beta=0.01, L1=0.00001, L2=0.1, alpha_fm=0.01, L2_fm=0.0, init_fm=0.01,
-                              D_fm=20, e_noise=0.0001, iters=3000, inv_link="identity", threads=4)
-            fm_ftrl.fit(feature_matrix, y_train)
-            print('[{}] Train FM_FTRL completed'.format(time.time() - start_time))
-            y_pro = fm_ftrl.predict(X_test)
-            print("FM_FTRL model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
-            print("FM_FTRL model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
-            print("FM_FTRL model Test logloss: {0}".format(log_loss(y_test, y_pro)))
-            print("FM_FTRL Test confusion_matrix :")
+            del(lgbm)
+            del(y_pre)
+            del(y_pro)
+        # elif self.model_type=='fm':
+        #     print("=" * 60)
+        #     start_time = time.time()
+        #     fm = xl.FMModel()
+        #     fm.fit(feature_matrix,y_train)
+        #     print('[{}] Train xl FM completed'.format(time.time() - start_time))
+        #     y_pro = fm.predict(X_test)
+        #     print("xl FM model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
+        #     print("xl FM model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
+        #     print("xl FM model Test logloss: {0}".format(log_loss(y_test, y_pro)))
+        #     print("xl FM Test confusion_matrix :")
+        # elif self.model_type=='wb':
+        #     print("=" * 60)
+        #     start_time = time.time()
+        #     fm_ftrl = FM_FTRL(alpha=0.012, beta=0.01, L1=0.00001, L2=0.1, alpha_fm=0.01, L2_fm=0.0, init_fm=0.01,
+        #                       D_fm=20, e_noise=0.0001, iters=3000, inv_link="identity", threads=4)
+        #     fm_ftrl.fit(feature_matrix, y_train)
+        #     print('[{}] Train FM_FTRL completed'.format(time.time() - start_time))
+        #     y_pro = fm_ftrl.predict(X_test)
+        #     print("FM_FTRL model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
+        #     print("FM_FTRL model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
+        #     print("FM_FTRL model Test logloss: {0}".format(log_loss(y_test, y_pro)))
+        #     print("FM_FTRL Test confusion_matrix :")
 
 def main(_):
     args_in = sys.argv[1:]
@@ -508,7 +548,7 @@ def main(_):
                            help='input data path')
     mtyunArgs.add_argument('--model_dir', type=str, default='',
                            help='output model path')
-    mtyunArgs.add_argument('--model_type', type=str, default='wb',
+    mtyunArgs.add_argument('--model_type', type=str, default='xgb',
                            help='model type str')
     mtyunArgs.add_argument('--tf_fs', type=str, default='', help='output model path')
     mtyunArgs.add_argument('--tf_prefix', type=str, default='', help='output model path')

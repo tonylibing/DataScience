@@ -216,15 +216,18 @@ class FeatureEncoder(BaseEstimator):
         self.args = None
         self.data_dir = None
         self.model_dir = None
+        self.cache_dir = None
         if args is not None:
             self.args = args
             self.data_dir =  self.args.data_dir
+            self.cache_dir = os.path.join(self.data_dir,'cache')
             self.model_dir = self.args.model_dir
 
-    def fit(self, df):
+    def fit(self, df,y):
         # column summary
         summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
         self.column_summary = ColumnSummary(df,dump_path=summary_path)
+        print(self.column_summary)
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
 
         for col in df.columns.values:
@@ -261,42 +264,82 @@ class FeatureEncoder(BaseEstimator):
 
         return self
 
-    def transform(self, df):
+    # def transform(self, df,y):
+    #     print("in transform")
+    #     print(len(df.columns.values))
+    #     # print(ColumnSummary(df))
+    #     for fp in tqdm(self.feature_processors, desc='feature processor'):
+    #         fp.transform(df)
+    #     df_tmp = df[self.feature_name]
+    #     data = []
+    #     row_idx = []
+    #     col_idx = []
+    #     for i, v in enumerate(df_tmp.values):
+    #         for k, vv in enumerate(v):
+    #             fp = self.feature_processors[k]
+    #             if 'categorical' == fp.col_type:
+    #                 if pd.isnull(vv) == False:
+    #                     data.append(1.0)
+    #                     row_idx.append(i)
+    #                     col_idx.append(int(vv) + self.feature_offset[fp.col_name])
+    #                     self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(vv)])] = int(vv) + \
+    #                                                                                                 self.feature_offset[
+    #                                                                                                     fp.col_name]
+    #             else:
+    #                 data.append(vv)
+    #                 row_idx.append(i)
+    #                 col_idx.append(self.feature_offset[fp.col_name])
+    #                 self.feature_names[fp.col_name] = self.feature_offset[fp.col_name]
+    #     data.append(0.0)
+    #     row_idx.append(len(df_tmp) - 1)
+    #     col_idx.append(self.length - 1)
+    #     print(len(data))
+    #     print(len(row_idx))
+    #     print(len(col_idx))
+    #     return csr_matrix((data, (row_idx, col_idx)))
+
+    # to libsvm
+    def transform(self, df,y,dump_name,data_type='libsvm'):
         print("in transform")
         print(len(df.columns.values))
-        print(ColumnSummary(df))
-        for fp in self.feature_processors:
+        for fp in tqdm(self.feature_processors, desc='transform features'):
             fp.transform(df)
-        df_tmp = df[self.feature_name]
-        data = []
-        row_idx = []
-        col_idx = []
-        for i, v in enumerate(df_tmp.values):
-            for k, vv in enumerate(v):
-                fp = self.feature_processors[k]
-                if 'categorical' == fp.col_type:
-                    if pd.isnull(vv) == False:
-                        data.append(1.0)
-                        row_idx.append(i)
-                        col_idx.append(int(vv) + self.feature_offset[fp.col_name])
-                        self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(vv)])] = int(vv) + \
-                                                                                                    self.feature_offset[
-                                                                                                        fp.col_name]
-                else:
-                    data.append(vv)
-                    row_idx.append(i)
-                    col_idx.append(self.feature_offset[fp.col_name])
-                    self.feature_names[fp.col_name] = self.feature_offset[fp.col_name]
-        data.append(0.0)
-        row_idx.append(len(df_tmp) - 1)
-        col_idx.append(self.length - 1)
-        print(len(data))
-        print(len(row_idx))
-        print(len(col_idx))
-        return csr_matrix((data, (row_idx, col_idx)))
 
-    def fit_transform(self, df):
-        return self.fit(df).transform(df)
+        print("persist to libsvm file:{}".format(dump_name))
+        df_tmp = df[self.feature_name]
+        dump_path = os.path.join(self.cache_dir,dump_name)
+        with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+            for i, v in df_tmp.iterrows():
+                new_line = []
+                if float(y[i])==0.0:
+                    label = '0'
+                else:
+                    label = '1'
+                new_line.append(label)
+                for j, item in enumerate(v):
+                    fp = self.feature_processors[j]
+                    if 'categorical' == fp.col_type:
+                        offset = int(item) + self.feature_offset[fp.col_name]
+                        new_item = "%s:%s" % (offset, 1.0)
+                        new_line.append(new_item)
+                        self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(item)])] = int(item) +  self.feature_offset[fp.col_name]
+                    elif 'numerical' == fp.col_type:
+                        if float(item) == 0.0:
+                            continue
+                        else:
+                            offset = self.feature_offset[fp.col_name]
+                            new_item = "%s:%s" % (offset, item)
+                            new_line.append(new_item)
+                new_line = " ".join(new_line)
+                new_line += "\n"
+                gf.write(new_line)
+                gf.flush()
+
+        del(df_tmp)
+        gc.collect()
+
+    def fit_transform(self, df,y,dump_name):
+        return self.fit(df,y).transform(df,y,dump_name)
 
     def persist(self):
         pass
