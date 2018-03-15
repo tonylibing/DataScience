@@ -435,9 +435,6 @@ class Rec():
             print('='*60)
             print(psutil.Process(os.getpid()).memory_info().rss)
 
-            c = Counter(y_train.values)
-            scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
-
             sl.fit(X_train, y_train)
             X = sl.transform(X_train)
             del(X_train)
@@ -450,14 +447,12 @@ class Rec():
             bfp.fit_transform(X,y_train,'feature_matrix.libsvm')
             del(X)
             gc.collect()
-            dtrain = xgb.DMatrix(train_path)
             X_test, y_test = self.make_test_set(test_start_date, test_end_date)
             X = sl.transform(X_test)
             del(X_test)
             bfp.transform(X,y_test,'feature_matrix_test.libsvm')
             del(X)
             gc.collect()
-            dtest = xgb.DMatrix(test_path)
 
         cores = multiprocessing.cpu_count()
         threads = int(cores*0.8)
@@ -466,6 +461,7 @@ class Rec():
             start_time = time.time()
             dtrain = xgb.DMatrix(train_path)
             dtest = xgb.DMatrix(test_path)
+            scale_pos_weight = (y_train[y_train == 0].shape[0]) * 1.0 / (y_train[y_train == 1].shape[0])
             gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=6, gamma=0.3,subsample=0.7,
                                 colsample_bytree=0.7, objective='binary:logistic', nthread=threads,
                                 scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
