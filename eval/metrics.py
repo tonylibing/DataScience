@@ -130,10 +130,10 @@ def plot_prec_recall_vs_tresh(y_test,y_score):
 
 def plot_prec_recall_f1_vs_tresh(y_test,y_score):
     precisions, recalls, thresholds = precision_recall_curve(y_test,y_score)
+    f1 = 1.0/(1.0/precisions+1.0/recalls)
     plt.plot(thresholds, precisions[:-1], 'b--', label='precision')
     plt.plot(thresholds, recalls[:-1], 'g--', label = 'recall')
-    f1 = f1_score(precisions,recalls)
-    plt.plot(thresholds, f1, 'g--', label = 'F1')
+    plt.plot(thresholds, f1, 'r--', label = 'F1')
     plt.xlabel('Threshold')
     plt.legend(loc='upper left')
     plt.ylim([0,1])

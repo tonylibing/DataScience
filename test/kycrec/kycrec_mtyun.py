@@ -455,7 +455,7 @@ class Rec():
         act_end_date = '2018-01-31'
 
         sl = FeatureSelection(self.args)
-        bfp = FeatureEncoder(self.args)
+
         feat_sel_path = os.path.join(self.cache_dir, 'feat_sel.pkl')
         feat_encoder_path = os.path.join(self.cache_dir, 'feat_encoder.pkl')
         X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
@@ -464,9 +464,9 @@ class Rec():
 
         sl.fit(X_train, y_train)
         X = sl.transform(X_train)
-        del (X_train)
+        bfp = FeatureEncoder(self.args,sl.numerical_cols,sl.categorical_cols)
 
-        bfp.fit_transform(X, y_train, 'feature_matrix.libsvm')
+        bfp.fit_transform(X, y_train, 'feature_matrix.csr')
         with tf.gfile.FastGFile(feat_sel_path, 'wb') as gf:
             pickle.dump(sl, gf)
         with tf.gfile.FastGFile(feat_encoder_path, 'wb') as gf:

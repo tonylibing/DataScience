@@ -7,6 +7,7 @@ import time
 import os
 import sys
 import gc
+import pickle
 import operator
 from tqdm import tqdm
 from collections import defaultdict
@@ -39,6 +40,15 @@ from sklearn.preprocessing import RobustScaler
 from sklearn.svm import LinearSVC
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from collections import Counter
+
+def save_sparse_csr(filename, array):
+    np.savez(filename, data=array.data, indices=array.indices,
+             indptr=array.indptr, shape=array.shape)
+
+def load_sparse_csr(filename):
+    loader = np.load(filename)
+    return csr_matrix((loader['data'], loader['indices'], loader['indptr']),
+                      shape=loader['shape'])
 
 def ColumnStats(df,cols):
     for col in cols:
@@ -204,15 +214,15 @@ class FeatureEncoder(BaseEstimator):
     6. feature union
     7. to sparse feature matrix or dense
     """
-    def __init__(self,args=None):
+    def __init__(self,args,numerical_cols,categorical_cols):
         self.column_type = None
         self.feature_matrix = None
         self.feature_processors = []
         self.variance_selector = VarianceThreshold(threshold=.99 * (1 - .99))
         self.scaler = StandardScaler()
         self.feature_names = {}
-        self.numerical_cols = []
-        self.categorical_cols = []
+        self.numerical_cols = numerical_cols
+        self.categorical_cols = categorical_cols
         self.args = None
         self.data_dir = None
         self.model_dir = None
@@ -226,8 +236,16 @@ class FeatureEncoder(BaseEstimator):
     def fit(self, df,y):
         # column summary
         summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
-        self.column_summary = ColumnSummary(df,dump_path=summary_path)
-        print(self.column_summary)
+        # self.column_summary = ColumnSummary(df,dump_path=summary_path)
+        if tf.gfile.Exists(summary_path):
+            with tf.gfile.FastGFile(summary_path, 'rb') as gf:
+                self.column_summary = pickle.load(gf)
+                cols1=self.column_summary.index.values.tolist()
+                cols2 = self.numerical_cols + self.categorical_cols
+                cols = list(set(cols1) - set(cols2))
+                self.column_summary.drop(self.column_summary.index[cols], inplace=True)
+                print(self.column_summary)
+
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
 
         for col in df.columns.values:
@@ -254,7 +272,7 @@ class FeatureEncoder(BaseEstimator):
 
         # StandardScaler
         # print("normalize numerical features:{0}".format(self.numerical_cols))
-        self.scaler.fit(self.df[self.numerical_cols])
+        self.scaler.fit(df[self.numerical_cols])
 
         print("=" * 60)
         print("feature_offset:{0}".format(self.feature_offset))
@@ -262,43 +280,9 @@ class FeatureEncoder(BaseEstimator):
 
         return self
 
-    # def transform(self, df,y):
-    #     print("in transform")
-    #     print(len(df.columns.values))
-    #     # print(ColumnSummary(df))
-    #     for fp in tqdm(self.feature_processors, desc='feature processor'):
-    #         fp.transform(df)
-    #     df_tmp = df[self.feature_name]
-    #     data = []
-    #     row_idx = []
-    #     col_idx = []
-    #     for i, v in enumerate(df_tmp.values):
-    #         for k, vv in enumerate(v):
-    #             fp = self.feature_processors[k]
-    #             if 'categorical' == fp.col_type:
-    #                 if pd.isnull(vv) == False:
-    #                     data.append(1.0)
-    #                     row_idx.append(i)
-    #                     col_idx.append(int(vv) + self.feature_offset[fp.col_name])
-    #                     self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(vv)])] = int(vv) + \
-    #                                                                                                 self.feature_offset[
-    #                                                                                                     fp.col_name]
-    #             else:
-    #                 data.append(vv)
-    #                 row_idx.append(i)
-    #                 col_idx.append(self.feature_offset[fp.col_name])
-    #                 self.feature_names[fp.col_name] = self.feature_offset[fp.col_name]
-    #     data.append(0.0)
-    #     row_idx.append(len(df_tmp) - 1)
-    #     col_idx.append(self.length - 1)
-    #     print(len(data))
-    #     print(len(row_idx))
-    #     print(len(col_idx))
-    #     return csr_matrix((data, (row_idx, col_idx)))
-
     # to libsvm
-    def transform(self, df,y,dump_name,data_type='libsvm'):
-        print("in transform")
+    def transform(self, df,y,dump_name,data_type='csr'):
+        print("transform to {} type".format(data_type))
         print(len(df.columns.values))
         for fp in tqdm(self.feature_processors, desc='transform features'):
             fp.transform(df)
@@ -311,32 +295,65 @@ class FeatureEncoder(BaseEstimator):
         del(df)
         gc.collect()
         dump_path = os.path.join(self.cache_dir,dump_name)
-        with tf.gfile.FastGFile(dump_path, 'wb') as gf:
-            for i, v in df_tmp.iterrows():
-                new_line = []
-                if float(y[i])==0.0:
-                    label = '0'
-                else:
-                    label = '1'
-                new_line.append(label)
-                for j, item in enumerate(v):
-                    fp = self.feature_processors[j]
-                    if 'categorical' == fp.col_type:
-                        offset = int(item) + self.feature_offset[fp.col_name]
-                        new_item = "%s:%s" % (offset, 1.0)
-                        new_line.append(new_item)
-                        self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(item)])] = int(item) +  self.feature_offset[fp.col_name]
-                    elif 'numerical' == fp.col_type:
-                        if float(item) == 0.0:
-                            continue
+        if data_type=='libsvm':
+            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+                with tqdm(total=len(df_tmp), desc='transform to libsvm') as pbar:
+                    for i, v in df_tmp.iterrows():
+                        pbar.update(1)
+                        new_line = []
+                        if float(y[i])==0.0:
+                            label = '0'
                         else:
-                            offset = self.feature_offset[fp.col_name]
-                            new_item = "%s:%s" % (offset, item)
-                            new_line.append(new_item)
-                new_line = " ".join(new_line)
-                new_line += "\n"
-                gf.write(new_line)
-                gf.flush()
+                            label = '1'
+                        new_line.append(label)
+                        for j, item in enumerate(v):
+                            fp = self.feature_processors[j]
+                            if 'categorical' == fp.col_type:
+                                offset = int(item) + self.feature_offset[fp.col_name]
+                                new_item = "%s:%s" % (offset, 1.0)
+                                new_line.append(new_item)
+                                self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(item)])] = int(item) +  self.feature_offset[fp.col_name]
+                            elif 'numerical' == fp.col_type:
+                                if float(item) == 0.0:
+                                    continue
+                                else:
+                                    offset = self.feature_offset[fp.col_name]
+                                    new_item = "%s:%s" % (offset, item)
+                                    new_line.append(new_item)
+                        new_line = " ".join(new_line)
+                        new_line += "\n"
+                        gf.write(new_line)
+                        gf.flush()
+        elif data_type=='csr':
+            data = []
+            row_idx = []
+            col_idx = []
+            with tqdm(total=len(df_tmp),desc='transform to csr') as pbar:
+                for i, v in df_tmp.iterrows():
+                    pbar.update(1)
+                    for k, vv in enumerate(v):
+                        fp = self.feature_processors[k]
+                        if 'categorical' == fp.col_type:
+                            if pd.isnull(vv) == False:
+                                data.append(1.0)
+                                row_idx.append(i)
+                                col_idx.append(int(vv) + self.feature_offset[fp.col_name])
+                            else:
+                                print('row:{0},col:{1} is null'.format(i,k))
+                        else:
+                            if pd.isnull(vv) == False:
+                                data.append(vv)
+                                row_idx.append(i)
+                                col_idx.append(self.feature_offset[fp.col_name])
+                                self.feature_names[fp.col_name] = self.feature_offset[fp.col_name]
+                            else:
+                                print('row:{0},col:{1} is null'.format(i,k))
+
+                print(len(data))
+                print(len(row_idx))
+                print(len(col_idx))
+                cm = csr_matrix((data, (row_idx, col_idx)),shape=(len(df_tmp),self.length))
+                save_sparse_csr(dump_path,cm)
 
         del(df_tmp)
         gc.collect()
