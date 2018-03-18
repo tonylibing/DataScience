@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import datetime
 import json
 import numbers
 import random
@@ -9,6 +8,7 @@ import sys
 import gc
 import pickle
 import operator
+from datetime import datetime
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -218,7 +218,7 @@ class FeatureEncoder(BaseEstimator):
     6. feature union
     7. to sparse feature matrix or dense
     """
-    def __init__(self,args,numerical_cols,categorical_cols):
+    def __init__(self,args,numerical_cols,categorical_cols,one_hot=False):
         self.column_type = None
         self.feature_matrix = None
         self.feature_processors = []
@@ -227,6 +227,7 @@ class FeatureEncoder(BaseEstimator):
         self.feature_names = {}
         self.numerical_cols = numerical_cols
         self.categorical_cols = categorical_cols
+        self.one_hot = one_hot
         self.args = None
         self.data_dir = None
         self.model_dir = None
@@ -237,7 +238,7 @@ class FeatureEncoder(BaseEstimator):
             self.cache_dir = os.path.join(self.data_dir,'cache')
             self.model_dir = self.args.model_dir
 
-    def fit(self, df):
+    def fit(self, df,y):
         # column summary
         summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
         # self.column_summary = ColumnSummary(df,dump_path=summary_path)
@@ -254,10 +255,10 @@ class FeatureEncoder(BaseEstimator):
 
         for col in df.columns.values:
             if self.column_type[col] == 'numerical':
-                fp = ContinuousFeatureTransformer(col, self.column_type[col], {})
+                fp = ContinuousFeatureTransformer(col, self.column_type[col], {},one_hot=False)
                 self.feature_processors.append(fp)
             elif self.column_type[col] == 'categorical':
-                fp = CategoricalFeatureTransformer(col, self.column_type[col], {})
+                fp = CategoricalFeatureTransformer(col, self.column_type[col], {},one_hot=False)
                 self.feature_processors.append(fp)
 
         print("=" * 60)
@@ -285,7 +286,7 @@ class FeatureEncoder(BaseEstimator):
         return self
 
     # to libsvm
-    def transform(self, df,dump_name,data_type='csr'):
+    def transform(self, df,y,dump_name,data_type='libsvm'):
         print("transform to {} type".format(data_type))
         print(len(df.columns.values))
         for fp in tqdm(self.feature_processors, desc='transform features'):
@@ -304,10 +305,10 @@ class FeatureEncoder(BaseEstimator):
         del(df)
         gc.collect()
         dump_path = os.path.join(self.cache_dir,dump_name)
-        if data_type=='libsvm':
+        if data_type=='libsvm' and self.one_hot:
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 with tqdm(total=len(df_tmp), desc='transform to libsvm') as pbar:
-                    for i, v in df_tmp.iterrows():
+                    for i, row in df_tmp.iterrows():
                         pbar.update(1)
                         new_line = []
                         if float(y[i])==0.0:
@@ -315,7 +316,7 @@ class FeatureEncoder(BaseEstimator):
                         else:
                             label = '1'
                         new_line.append(label)
-                        for j, item in enumerate(v):
+                        for j, item in enumerate(row):
                             fp = self.feature_processors[j]
                             if 'categorical' == fp.col_type:
                                 offset = int(item) + self.feature_offset[fp.col_name]
@@ -335,14 +336,44 @@ class FeatureEncoder(BaseEstimator):
                         gf.flush()
                 del(df_tmp)
                 gc.collect()
+        elif data_type=='libsvm' and self.one_hot==False:
+            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+                with tqdm(total=len(df_tmp), desc='transform to libsvm') as pbar:
+                    for i, row in df_tmp.iterrows():
+                        pbar.update(1)
+                        new_line = []
+                        if float(y[i])==0.0:
+                            label = '0'
+                        else:
+                            label = '1'
+                        new_line.append(label)
+                        for j, item in enumerate(row):
+                            fp = self.feature_processors[j]
+                            if 'categorical' == fp.col_type:
+                                offset = self.feature_offset[fp.col_name]
+                                new_item = "%s:%s" % (offset, int(item))
+                                new_line.append(new_item)
+                            elif 'numerical' == fp.col_type:
+                                if float(item) == 0.0:
+                                    continue
+                                else:
+                                    offset = self.feature_offset[fp.col_name]
+                                    new_item = "%s:%s" % (offset, item)
+                                    new_line.append(new_item)
+                        new_line = " ".join(new_line)
+                        new_line += "\n"
+                        gf.write(new_line)
+                        gf.flush()
+                del(df_tmp)
+                gc.collect()
         elif data_type=='csr':
             data = []
             row_idx = []
             col_idx = []
             with tqdm(total=len(df_tmp),desc='transform to csr') as pbar:
-                for i, v in df_tmp.iterrows():
+                for i, row in df_tmp.iterrows():
                     pbar.update(1)
-                    for k, vv in enumerate(v):
+                    for k, vv in enumerate(row):
                         fp = self.feature_processors[k]
                         if 'categorical' == fp.col_type:
                             if pd.isnull(vv) == False:
@@ -370,7 +401,7 @@ class FeatureEncoder(BaseEstimator):
                 save_sparse_csr(dump_path,cm)
 
     def fit_transform(self, df,y,dump_name):
-        return self.fit(df).transform(df,dump_name)
+        return self.fit(df,y).transform(df,y,dump_name)
 
     def persist(self):
         pass
@@ -388,10 +419,11 @@ class FeatureEncoder(BaseEstimator):
 
 
 class ContinuousFeatureTransformer(TransformerMixin):
-    def __init__(self, col_name, col_type, params):
+    def __init__(self, col_name, col_type, params,one_hot=False):
         self.col_name = col_name
         self.col_type = col_type
         self.params = params
+        self.one_hot = one_hot
         self.fillmethod = 'median'
         if 'fillmethod' in self.params:
             self.fillmethod = self.params['fillmethod']
@@ -421,10 +453,11 @@ class ContinuousFeatureTransformer(TransformerMixin):
         return self.fit(df).transform(df)
 
 class CategoricalFeatureTransformer(TransformerMixin):
-    def __init__(self, col_name, col_type, params):
+    def __init__(self, col_name, col_type, params,one_hot=False):
         self.col_name = col_name
         self.col_type = col_type
         self.params = params
+        self.one_hot = one_hot
         self.feature2id = {}
         self.id2feature = {}
         # self.imputer = MissingImputer()
@@ -443,7 +476,11 @@ class CategoricalFeatureTransformer(TransformerMixin):
             self.feature2id[item] = idx
             idx += 1
 
-        self.dimension = idx
+        if self.one_hot:
+            self.dimension = idx
+        else:
+            self.dimension = 1
+            
         print("col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id))
         return self
 
@@ -990,9 +1027,9 @@ def DateGapGenerator(TransformerMixin):
 
     def transform(self, X):
         base2 = time.strptime(self.base, '%Y/%m/%d')
-        base3 = datetime.datetime(base2[0], base2[1], base2[2])
+        base3 = datetime(base2[0], base2[1], base2[2])
         date1 = [time.strptime(i, '%Y/%m/%d') for i in X[self.col]]
-        date2 = [datetime.datetime(i[0], i[1], i[2]) for i in date1]
+        date2 = [datetime(i[0], i[1], i[2]) for i in date1]
         daysGap = [(date2[i] - base3).days for i in range(len(date2))]
         return daysGap
 

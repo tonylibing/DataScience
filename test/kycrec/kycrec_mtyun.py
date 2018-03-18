@@ -8,21 +8,19 @@ import argparse
 import pickle
 import scipy
 from sklearn.datasets import dump_svmlight_file
-from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score, f1_score, accuracy_score, \
-    average_precision_score, log_loss
-from datetime import datetime
+from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score, f1_score, accuracy_score, average_precision_score, log_loss
 from datetime import timedelta
+from datetime import datetime
 from dateutil.parser import parse
 import xgboost as xgb
 import lightgbm as lgb
 #import xlearn as xl
 import tensorflow as tf
-
+from tqdm import tqdm
 from collections import Counter
-
+from importlib import reload
 sys.path.append("../..")
 import feature.processor
-from importlib import reload
 reload(feature.processor)
 from feature.processor import *
 #from wordbatch.models import FTRL, FM_FTRL
@@ -182,14 +180,15 @@ class Rec():
             interval_browse = self.get_browse(start_date, end_date)
             spans = [30, 15, 7, 3, 1]
             for span in spans:
-                span_start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span)
+                span_start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span-1)
                 span_start_date = span_start_date.strftime('%Y-%m-%d')
                 print(span_start_date, end_date)
                 if span_start_date < start_date:
-                    print('pass:', span_start_date, start_date)
-                    continue
+                    print('warning pass date:', span_start_date, start_date)
+                    span_start_date = start_date
+                    # continue
                 browse = interval_browse[
-                    (interval_browse['date'] <= end_date) & (interval_browse['date'] > span_start_date)]
+                    (interval_browse['date'] <= end_date) & (interval_browse['date'] >= span_start_date)]
                 # browse times
                 browse_product_times = browse.groupby(['user_id', 'product_group']).size().reset_index()
                 browse_product_times.rename(columns={0: '%d_day_browse_id_times' % (span)}, inplace=True)
@@ -253,14 +252,15 @@ class Rec():
             interval_invest = self.get_invest(start_date, end_date)
             spans = [30, 15, 7, 3, 1]
             for span in spans:
-                span_start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span)
+                span_start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span-1)
                 span_start_date = span_start_date.strftime('%Y-%m-%d')
                 print(span_start_date, end_date)
                 if span_start_date < start_date:
                     print('pass:', span_start_date, start_date)
-                    continue
+                    span_start_date=start_date
+                    # continue
                 invest = interval_invest[
-                    (interval_invest['invest_dt'] <= end_date) & (interval_invest['invest_dt'] > span_start_date)]
+                    (interval_invest['invest_dt'] <= end_date) & (interval_invest['invest_dt'] >=span_start_date)]
                 # invest times
                 #            invest_product_times = invest.groupby(['user_id', 'product_id']).size().reset_index()
                 invest_product_times = invest.groupby(['user_id', 'product_group']).size().reset_index()
@@ -354,32 +354,6 @@ class Rec():
         print(train_set.columns)
         return train_set, labels
 
-    def make_sliding_train_set(self, start_date, end_date, slide_start_date, step=3):
-        window = datetime.strptime(end_date, '%Y-%m-%d') - datetime.strptime(slide_start_date, '%Y-%m-%d')
-        l = window.days / step
-        print("gen train set with step", step)
-        X = None
-        y = None
-        for i in range(l):
-            s = datetime.strptime(slide_start_date, '%Y-%m-%d') + timedelta(days=i * step)
-            start = datetime.strftime(s, '%Y-%m-%d')
-            e = datetime.strptime(slide_start_date, '%Y-%m-%d') + timedelta(days=(i + 1) * step-1)
-            end = datetime.strftime(e, '%Y-%m-%d')
-            if end > end_date:
-                pass
-            else:
-                X_train, y_train = self.make_train_set(start, end)
-                if X is None:
-                    X = X_train
-                    y = y_train
-                else:
-                    X = pd.concat([X, X_train], axis=0)
-                    del X_train
-                    y = pd.concat([y, y_train], axis=0)
-                    del y_train
-
-        return X, y
-
     def make_test_set(self, test_start_date, test_end_date,test_act_start_date,test_act_end_date):
         print('make test set', test_start_date, test_end_date)
         dump_path = os.path.join(self.cache_dir, 'test_set_%s_%s.pkl' % (test_start_date, test_end_date))
@@ -448,29 +422,62 @@ class Rec():
             del (X)
             gc.collect()
 
-    def dump_model(self):
-        train_start_date = '2017-12-01'
-        train_end_date = '2017-12-31'
-        act_start_date = '2018-01-01'
-        act_end_date = '2018-01-31'
-
-        sl = FeatureSelection(self.args)
-
+    def make_train_libsvm_matrix(self,train_start_date,train_end_date,act_start_date,act_end_date):
+        dump_path = os.path.join(self.cache_dir, 'train_matrix_%s_%s_%s_%s.libsvm' % (
+            train_start_date, train_end_date, act_start_date, act_end_date))
+        if tf.gfile.Exists(dump_path):
+            return
+        print("making train libsvm matrix:{0}-{1}-{2}-{3}".format(train_start_date,train_end_date,act_start_date,act_end_date))
         feat_sel_path = os.path.join(self.cache_dir, 'feat_sel.pkl')
         feat_encoder_path = os.path.join(self.cache_dir, 'feat_encoder.pkl')
+
         X_train, y_train = self.make_train_set(train_start_date, train_end_date, act_start_date, act_end_date)
         print("train set y=0:{0}".format(y_train[y_train == 0].shape[0]))
         print("train set y=1:{0}".format(y_train[y_train == 1].shape[0]))
 
-        sl.fit(X_train, y_train)
-        X = sl.transform(X_train)
-        bfp = FeatureEncoder(self.args,sl.numerical_cols,sl.categorical_cols)
+        if tf.gfile.Exists(feat_sel_path) and tf.gfile.Exists(feat_encoder_path):
+            with tf.gfile.FastGFile(feat_sel_path, 'rb') as gf:
+                sl = pickle.load(gf)
+            with tf.gfile.FastGFile(feat_encoder_path, 'rb') as gf:
+                bfp = pickle.load(gf)
+        else:
+            sl = FeatureSelection(self.args)
+            sl.fit(X_train, y_train)
+            bfp = FeatureEncoder(self.args,sl.numerical_cols,sl.categorical_cols)
 
-        bfp.fit_transform(X, y_train, 'feature_matrix.csr')
-        with tf.gfile.FastGFile(feat_sel_path, 'wb') as gf:
-            pickle.dump(sl, gf)
-        with tf.gfile.FastGFile(feat_encoder_path, 'wb') as gf:
-            pickle.dump(bfp, gf)
+        X = sl.transform(X_train)
+        del(X_train)
+        gc.collect()
+        bfp.fit_transform(X,y_train, dump_path)
+
+        if tf.gfile.Exists(feat_sel_path) and tf.gfile.Exists(feat_encoder_path):
+            pass
+        else:
+            with tf.gfile.FastGFile(feat_sel_path, 'wb') as gf:
+                pickle.dump(sl, gf)
+            with tf.gfile.FastGFile(feat_encoder_path, 'wb') as gf:
+                pickle.dump(bfp, gf)
+
+    def make_sliding_train_matrix(self,start_date, end_date, window=30,step=5):
+        whole = datetime.strptime(end_date, '%Y-%m-%d') - datetime.strptime(start_date, '%Y-%m-%d')
+        l = int(whole.days / step)
+        print("gen train matrix with step", step)
+        for i in tqdm(range(l),desc='train matrix:'):
+            s = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=i * step)
+            train_start_date = datetime.strftime(s, '%Y-%m-%d')
+            s = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i * step)+window-1)
+            train_end_date = datetime.strftime(s, '%Y-%m-%d')
+            e = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i *step)+window)
+            act_start_date = datetime.strftime(e, '%Y-%m-%d')
+            e = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i *step)+2*window-1)
+            act_end_date = datetime.strftime(e, '%Y-%m-%d')
+            if act_end_date <= end_date:
+                self.make_train_libsvm_matrix(train_start_date,train_end_date,act_start_date,act_end_date)
+
+    def train_lgb(self):
+        train_path = os.path.join(self.cache_dir,"train_matrix_all.libsvm")
+        train_data = lgb.Dataset(train_path)
+        train_data = lgb.Dataset(data, label=label, weight=w)
 
     def train(self):
         train_start_date = '2017-12-01'
@@ -633,7 +640,7 @@ def main(_):
     args = parser.parse_args(args_in)
 
     r = Rec(args)
-    r.dump_model()
+    r.make_sliding_train_matrix('2017-12-01','2018-03-01')
     # r.gen_test()
     # r.train()
 
