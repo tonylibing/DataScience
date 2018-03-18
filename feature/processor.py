@@ -144,7 +144,11 @@ class FeatureSelection(TransformerMixin):
         print(len(X.columns.values))
         # drop missing too much columns
         summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
-        self.column_summary = ColumnSummary(X,dump_path=summary_path)
+        if tf.gfile.Exists(summary_path):
+            with tf.gfile.FastGFile(summary_path, 'rb') as gf:
+                self.column_summary = pd.read_csv(gf)
+        else:
+            self.column_summary = ColumnSummary(X,dump_path=summary_path)
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
         drop_cols = self.column_summary[self.column_summary['missing_pct'] > 0.99]['col_name']
 
@@ -172,7 +176,7 @@ class FeatureSelection(TransformerMixin):
         # print(df_nonna.index.values)
         # normalize numerical features
         # df_norm = pd.DataFrame(normalize(df_nonna,axis=0),columns=self.numerical_cols)
-        df_norm = pd.DataFrame(self.scaler.fit_transform(df_nonna), columns=self.numerical_cols)
+        df_norm = pd.DataFrame(self.scaler.fit_transform(df_nonna), index=df_nonna.index,columns=self.numerical_cols)
         df_numerical = self.variance_selector.fit_transform(df_norm)
         idxs_selected = self.variance_selector.get_support(indices=True)
         print("feature selected by > variance threshold:")
@@ -239,11 +243,11 @@ class FeatureEncoder(BaseEstimator):
         # self.column_summary = ColumnSummary(df,dump_path=summary_path)
         if tf.gfile.Exists(summary_path):
             with tf.gfile.FastGFile(summary_path, 'rb') as gf:
-                self.column_summary = pickle.load(gf)
-                cols1=self.column_summary.index.values.tolist()
+                self.column_summary = pd.read_csv(gf)
+                cols1=self.column_summary['col_name'].values.tolist()
                 cols2 = self.numerical_cols + self.categorical_cols
                 cols = list(set(cols1) - set(cols2))
-                self.column_summary.drop(self.column_summary.index[cols], inplace=True)
+                self.column_summary = self.column_summary[~self.column_summary['col_name'].isin(cols)]
                 print(self.column_summary)
 
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
@@ -272,7 +276,7 @@ class FeatureEncoder(BaseEstimator):
 
         # StandardScaler
         # print("normalize numerical features:{0}".format(self.numerical_cols))
-        self.scaler.fit(df[self.numerical_cols])
+        # self.scaler.fit(df[self.numerical_cols])
 
         print("=" * 60)
         print("feature_offset:{0}".format(self.feature_offset))
@@ -287,12 +291,16 @@ class FeatureEncoder(BaseEstimator):
         for fp in tqdm(self.feature_processors, desc='transform features'):
             fp.transform(df)
 
-        print("persist to libsvm file:{}".format(dump_name))
-        df_numerical = self.scaler.transform(df[self.numerical_cols])
-        df = pd.concat([df[self.categorical_cols],df_numerical],axis=1)
-        df_tmp = df[self.feature_name]
+        print("persist to  file:{}".format(dump_name))
+        df_numerical = pd.DataFrame(self.scaler.fit_transform(df[self.numerical_cols]),index=df.index, columns=self.numerical_cols)
+        df_new = pd.concat([df[self.categorical_cols],df_numerical],axis=1)
+        df_tmp = df_new[self.feature_name]
+        if(df_tmp.isnull().values.any()):
+            print("df_tmp has nulls")
+            df_tmp.fillna(0,inplace=True)
+
         del(df_numerical)
-        del(df)
+        del(df_new)
         gc.collect()
         dump_path = os.path.join(self.cache_dir,dump_name)
         if data_type=='libsvm':
@@ -518,9 +526,9 @@ class ContinuousFeatureTransformer(TransformerMixin):
             missing_cnt = df.loc[pd.isnull(df[self.col_name])][self.col_name].size
             not_missing = df.loc[~pd.isnull(df[self.col_name])][self.col_name]
             rnd_value = not_missing.sample(n=missing_cnt)
-            df.loc[pd.isnull(df[self.col_name])][self.col_name] = rnd_value
+            df.loc[pd.isnull(df[self.col_name]),self.col_name] = rnd_value
         else:
-            df[self.col_name] = df[self.col_name].fillna(self.value)
+            df.loc[:,self.col_name].fillna(self.value,inplace=True)
         return df[self.col_name]
 
     def fit_transform(self, df):
@@ -555,7 +563,7 @@ class CategoricalFeatureTransformer(TransformerMixin):
         return self
 
     def transform(self, df):
-        df[self.col_name] = df[self.col_name].astype(str).map(self.feature2id)
+        df.loc[:,self.col_name] = df[self.col_name].astype(str).map(self.feature2id)
         return df[self.col_name]
 
     def fit_transform(self, df):
