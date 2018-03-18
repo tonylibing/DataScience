@@ -167,17 +167,17 @@ class FeatureSelection(TransformerMixin):
         print(self.numerical_cols)
         print("categorical features:")
         print(self.categorical_cols)
-        df_cat = X[self.categorical_cols]
+        # df_cat = X[self.categorical_cols]
         df_nonna = X[self.numerical_cols].fillna(0)
         # df_nonna = X[self.numerical_cols].dropna()
         print("df_nonna shape:")
         print(df_nonna.shape)
-        y_tmp = y[df_nonna.index]
+        # y_tmp = y[df_nonna.index]
         # print(df_nonna.index.values)
         # normalize numerical features
         # df_norm = pd.DataFrame(normalize(df_nonna,axis=0),columns=self.numerical_cols)
         df_norm = pd.DataFrame(self.scaler.fit_transform(df_nonna), index=df_nonna.index,columns=self.numerical_cols)
-        df_numerical = self.variance_selector.fit_transform(df_norm)
+        self.variance_selector.fit_transform(df_norm)
         idxs_selected = self.variance_selector.get_support(indices=True)
         print("feature selected by > variance threshold:")
         print(df_nonna.columns[idxs_selected])
@@ -237,7 +237,7 @@ class FeatureEncoder(BaseEstimator):
             self.cache_dir = os.path.join(self.data_dir,'cache')
             self.model_dir = self.args.model_dir
 
-    def fit(self, df,y):
+    def fit(self, df):
         # column summary
         summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
         # self.column_summary = ColumnSummary(df,dump_path=summary_path)
@@ -285,7 +285,7 @@ class FeatureEncoder(BaseEstimator):
         return self
 
     # to libsvm
-    def transform(self, df,y,dump_name,data_type='csr'):
+    def transform(self, df,dump_name,data_type='csr'):
         print("transform to {} type".format(data_type))
         print(len(df.columns.values))
         for fp in tqdm(self.feature_processors, desc='transform features'):
@@ -301,6 +301,7 @@ class FeatureEncoder(BaseEstimator):
 
         del(df_numerical)
         del(df_new)
+        del(df)
         gc.collect()
         dump_path = os.path.join(self.cache_dir,dump_name)
         if data_type=='libsvm':
@@ -320,7 +321,7 @@ class FeatureEncoder(BaseEstimator):
                                 offset = int(item) + self.feature_offset[fp.col_name]
                                 new_item = "%s:%s" % (offset, 1.0)
                                 new_line.append(new_item)
-                                self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(item)])] = int(item) +  self.feature_offset[fp.col_name]
+                                # self.feature_names["{0}={1}".format(fp.col_name, fp.id2feature[int(item)])] = int(item) +  self.feature_offset[fp.col_name]
                             elif 'numerical' == fp.col_type:
                                 if float(item) == 0.0:
                                     continue
@@ -332,6 +333,8 @@ class FeatureEncoder(BaseEstimator):
                         new_line += "\n"
                         gf.write(new_line)
                         gf.flush()
+                del(df_tmp)
+                gc.collect()
         elif data_type=='csr':
             data = []
             row_idx = []
@@ -360,14 +363,14 @@ class FeatureEncoder(BaseEstimator):
                 print(len(data))
                 print(len(row_idx))
                 print(len(col_idx))
-                cm = csr_matrix((data, (row_idx, col_idx)),shape=(len(df_tmp),self.length))
+                r = len(df_tmp)
+                del(df_tmp)
+                gc.collect()
+                cm = csr_matrix((data, (row_idx, col_idx)),shape=(r,self.length))
                 save_sparse_csr(dump_path,cm)
 
-        del(df_tmp)
-        gc.collect()
-
     def fit_transform(self, df,y,dump_name):
-        return self.fit(df,y).transform(df,y,dump_name)
+        return self.fit(df).transform(df,dump_name)
 
     def persist(self):
         pass
@@ -382,6 +385,77 @@ class FeatureEncoder(BaseEstimator):
         sorted_x = sorted(self.feature_names.items(), key=operator.itemgetter(1))
         info = processors + "\n" + json.dumps(sorted_x)
         return info
+
+
+class ContinuousFeatureTransformer(TransformerMixin):
+    def __init__(self, col_name, col_type, params):
+        self.col_name = col_name
+        self.col_type = col_type
+        self.params = params
+        self.fillmethod = 'median'
+        if 'fillmethod' in self.params:
+            self.fillmethod = self.params['fillmethod']
+
+    def fit(self, df):
+        if self.fillmethod == 'value':
+            self.value = self.params['value']
+        elif self.fillmethod == 'mean':
+            self.value = df[self.col_name].mean()
+        elif self.fillmethod == 'median':
+            self.value = df[self.col_name].median()
+
+        self.dimension = 1
+        return self
+
+    def transform(self, df):
+        if self.fillmethod == 'random':
+            missing_cnt = df.loc[pd.isnull(df[self.col_name])][self.col_name].size
+            not_missing = df.loc[~pd.isnull(df[self.col_name])][self.col_name]
+            rnd_value = not_missing.sample(n=missing_cnt)
+            df.loc[pd.isnull(df[self.col_name]),self.col_name] = rnd_value
+        else:
+            df.loc[:,self.col_name].fillna(self.value,inplace=True)
+        return df[self.col_name]
+
+    def fit_transform(self, df):
+        return self.fit(df).transform(df)
+
+class CategoricalFeatureTransformer(TransformerMixin):
+    def __init__(self, col_name, col_type, params):
+        self.col_name = col_name
+        self.col_type = col_type
+        self.params = params
+        self.feature2id = {}
+        self.id2feature = {}
+        # self.imputer = MissingImputer()
+
+    def fit(self, df):
+        # fill missing value with mod
+        # mod_value = df[self.col_name].value_counts().index[0]
+        # print("{0} mod value:{1}".format(self.col_name,mod_value))
+        # df[self.col_name].fillna(mod_value,inplace=True)
+        # generate feature index mapping
+        idx = 0
+        self.feature2id = {}
+        self.id2feature = {}
+        for item in df[self.col_name].astype(str).unique():
+            self.id2feature[idx] = item
+            self.feature2id[item] = idx
+            idx += 1
+
+        self.dimension = idx
+        print("col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id))
+        return self
+
+    def transform(self, df):
+        df.loc[:,self.col_name] = df[self.col_name].astype(str).map(self.feature2id)
+        return df[self.col_name]
+
+    def fit_transform(self, df):
+        return self.fit(df).transform(df)
+
+    def __str__(self):
+        return "col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id)
 
 
 class ContinuousFeatureGenerator:
@@ -499,79 +573,6 @@ class MissingImputer(TransformerMixin):
 
     def fit_transform(self, df, y=None):
         return self.fit(df, y).transform(df, y)
-
-
-class ContinuousFeatureTransformer(TransformerMixin):
-    def __init__(self, col_name, col_type, params):
-        self.col_name = col_name
-        self.col_type = col_type
-        self.params = params
-        self.fillmethod = 'median'
-        if 'fillmethod' in self.params:
-            self.fillmethod = self.params['fillmethod']
-
-    def fit(self, df):
-        if self.fillmethod == 'value':
-            self.value = self.params['value']
-        elif self.fillmethod == 'mean':
-            self.value = df[self.col_name].mean()
-        elif self.fillmethod == 'median':
-            self.value = df[self.col_name].median()
-
-        self.dimension = 1
-        return self
-
-    def transform(self, df):
-        if self.fillmethod == 'random':
-            missing_cnt = df.loc[pd.isnull(df[self.col_name])][self.col_name].size
-            not_missing = df.loc[~pd.isnull(df[self.col_name])][self.col_name]
-            rnd_value = not_missing.sample(n=missing_cnt)
-            df.loc[pd.isnull(df[self.col_name]),self.col_name] = rnd_value
-        else:
-            df.loc[:,self.col_name].fillna(self.value,inplace=True)
-        return df[self.col_name]
-
-    def fit_transform(self, df):
-        return self.fit(df).transform(df)
-
-
-class CategoricalFeatureTransformer(TransformerMixin):
-    def __init__(self, col_name, col_type, params):
-        self.col_name = col_name
-        self.col_type = col_type
-        self.params = params
-        self.feature2id = {}
-        self.id2feature = {}
-        # self.imputer = MissingImputer()
-
-    def fit(self, df):
-        # fill missing value with mod
-        # mod_value = df[self.col_name].value_counts().index[0]
-        # print("{0} mod value:{1}".format(self.col_name,mod_value))
-        # df[self.col_name].fillna(mod_value,inplace=True)
-        # generate feature index mapping
-        idx = 0
-        self.feature2id = {}
-        self.id2feature = {}
-        for item in df[self.col_name].astype(str).unique():
-            self.id2feature[idx] = item
-            self.feature2id[item] = idx
-            idx += 1
-
-        self.dimension = idx
-        print("col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id))
-        return self
-
-    def transform(self, df):
-        df.loc[:,self.col_name] = df[self.col_name].astype(str).map(self.feature2id)
-        return df[self.col_name]
-
-    def fit_transform(self, df):
-        return self.fit(df).transform(df)
-
-    def __str__(self):
-        return "col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id)
-
 
 class QuantileBinarizer(TransformerMixin):
     def __init__(self, columns):

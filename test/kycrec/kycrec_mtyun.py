@@ -15,7 +15,7 @@ from datetime import timedelta
 from dateutil.parser import parse
 import xgboost as xgb
 import lightgbm as lgb
-import xlearn as xl
+#import xlearn as xl
 import tensorflow as tf
 
 from collections import Counter
@@ -25,7 +25,7 @@ import feature.processor
 from importlib import reload
 reload(feature.processor)
 from feature.processor import *
-from wordbatch.models import FTRL, FM_FTRL
+#from wordbatch.models import FTRL, FM_FTRL
 
 FLAGS = None
 
