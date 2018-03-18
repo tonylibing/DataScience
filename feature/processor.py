@@ -255,10 +255,10 @@ class FeatureEncoder(BaseEstimator):
 
         for col in df.columns.values:
             if self.column_type[col] == 'numerical':
-                fp = ContinuousFeatureTransformer(col, self.column_type[col], {},one_hot=False)
+                fp = ContinuousFeatureTransformer(col, self.column_type[col], {})
                 self.feature_processors.append(fp)
             elif self.column_type[col] == 'categorical':
-                fp = CategoricalFeatureTransformer(col, self.column_type[col], {},one_hot=False)
+                fp = CategoricalFeatureTransformer(col, self.column_type[col], {})
                 self.feature_processors.append(fp)
 
         print("=" * 60)
@@ -463,11 +463,13 @@ class CategoricalFeatureTransformer(TransformerMixin):
         # self.imputer = MissingImputer()
 
     def fit(self, df):
-        # fill missing value with mod
-        # mod_value = df[self.col_name].value_counts().index[0]
-        # print("{0} mod value:{1}".format(self.col_name,mod_value))
-        # df[self.col_name].fillna(mod_value,inplace=True)
-        # generate feature index mapping
+        """
+        fill missing value with mod
+        mod_value = df[self.col_name].value_counts().index[0]
+        print("{0} mod value:{1}".format(self.col_name,mod_value))
+        df[self.col_name].fillna(mod_value,inplace=True)
+        generate feature index mapping
+        """
         idx = 0
         self.feature2id = {}
         self.id2feature = {}
@@ -480,7 +482,7 @@ class CategoricalFeatureTransformer(TransformerMixin):
             self.dimension = idx
         else:
             self.dimension = 1
-            
+
         print("col_name:{0},col_type:{1},feature2id:{2}".format(self.col_name, self.col_type, self.feature2id))
         return self
 

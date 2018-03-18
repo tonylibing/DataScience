@@ -419,7 +419,7 @@ class Rec():
         test_path = os.path.join(self.cache_dir, 'feature_matrix_test.libsvm')
         if not tf.gfile.Exists(test_path):
             bfp.transform(X, y_test, 'feature_matrix_test.libsvm')
-            del (X)
+            del(X)
             gc.collect()
 
     def make_train_libsvm_matrix(self,train_start_date,train_end_date,act_start_date,act_end_date):
