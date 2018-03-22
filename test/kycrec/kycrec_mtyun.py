@@ -650,6 +650,42 @@ class Rec():
                 pickle.dump(res, gf)
 
 
+    def train_xgb(self):
+        print("=" * 60)
+        start_time = time.time()
+        data_path = os.path.join(self.cache_dir, "train_matrix.csv")
+        with tf.gfile.FastGFile(data_path, 'rb') as gf:
+            data = pd.read_csv(gf)
+
+        cols = [col for col in data.columns.values if col not in ['label']]
+        y =data['label']
+        scale_pos_weight = (y[y == 0].shape[0]) * 1.0 / (y[y == 1].shape[0])
+        X_train, X_test, y_train, y_test = train_test_split(data.loc[:,cols], y, test_size=0.3, random_state=999,stratify=y)
+
+        threads = int(0.8*multiprocessing.cpu_count())
+        gbm = xgb.XGBClassifier(n_estimators=30, learning_rate=0.3, max_depth=4, min_child_weight=6, gamma=0.3,
+                                subsample=0.7,
+                                colsample_bytree=0.7, objective='binary:logistic', nthread=threads,
+                                scale_pos_weight=scale_pos_weight, reg_alpha=1e-05, reg_lambda=1, seed=27)
+        print('training...')
+        gbm.fit(X_train, y_train)
+        print('[{}] Train xgboost completed'.format(time.time() - start_time))
+        print('predicting...')
+        print('test set...',y_test.value_counts())
+        y_pre = gbm.predict(X_test)
+        y_pro = gbm.predict_proba(X_test)[:,1]
+        print("Xgboost model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
+        print("Xgboost model Test Precision: {0}".format(precision_score(y_test, y_pre)))
+        print("Xgboost model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+        print("Xgboost model Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
+        print("Xgboost model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
+        print("Xgboost model Test logloss: {0}".format(log_loss(y_test, y_pro)))
+        print("Xgboost Test confusion_matrix :")
+        print(confusion_matrix(y_test, y_pre))
+        del (gbm)
+        del (y_pre)
+        del (y_pro)
+
     def train_lgb(self):
         print("=" * 60)
         start_time = time.time()
@@ -660,8 +696,7 @@ class Rec():
         cols = [col for col in data.columns.values if col not in ['label']]
         y =data['label']
         scale_pos_weight = (y[y == 0].shape[0]) * 1.0 / (y[y == 1].shape[0])
-        X_train, X_test, y_train, y_test = train_test_split(data.loc[:,cols], y, test_size=0.3, random_state=999,
-                                                            shuffle=True)
+        X_train, X_test, y_train, y_test = train_test_split(data.loc[:,cols], y, test_size=0.3, random_state=999,stratify=y)
         lgbm = lgb.LGBMClassifier(boosting_type='gbdt', max_depth=4, learning_rate=0.3, n_estimators=30,
                                   scale_pos_weight=scale_pos_weight, min_child_weight=1, subsample=0.7,
                                   colsample_bytree=0.7,
@@ -851,6 +886,7 @@ def main(_):
     # r.make_sliding_train_set('2017-12-01','2018-03-01')
     # r.merge_sliding_train_set('2017-12-01','2018-03-01')
     r.train_lgb()
+    r.train_xgb()
     # r.train()
 
 if __name__ == '__main__':
