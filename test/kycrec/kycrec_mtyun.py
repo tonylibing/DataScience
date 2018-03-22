@@ -8,6 +8,7 @@ import argparse
 import pickle
 import scipy
 from sklearn.datasets import dump_svmlight_file
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score, f1_score, accuracy_score, average_precision_score, log_loss
 from datetime import timedelta
 from datetime import datetime
@@ -44,7 +45,6 @@ class Rec():
         product_dir = os.path.join(self.data_dir, "value_customer.csv")
         with tf.gfile.FastGFile(product_dir, 'rb') as gf:
             value_customers = pd.read_csv(gf)
-        value_customers
         return value_customers
 
     def user_feat(self):
@@ -135,8 +135,6 @@ class Rec():
 
     def gen_sample(self, start_date, end_date):
         print('get interactive users', start_date, end_date)
-        # start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span)
-        # start_date = start_date.strftime('%Y-%m-%d')
         dump_path = os.path.join(self.cache_dir, 'samples_%s_%s.pkl' % (start_date, end_date))
         if tf.gfile.Exists(dump_path):
             with tf.gfile.FastGFile(dump_path, 'rb') as gf:
@@ -151,6 +149,7 @@ class Rec():
                 pickle.dump(samples, gf)
         return samples
 
+
     def gen_million_sample(self, start_date, end_date):
         print('get interactive users', start_date, end_date)
         # start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span)
@@ -162,9 +161,9 @@ class Rec():
         else:
             actions = self.get_browse(start_date, end_date)
             samples = actions.groupby(['user_id', 'product_group']).size().reset_index()
-            samples = samples[samples['product_group'].str.contains('100w')][['user_id','product_group']]
+            samples = samples[samples['product_group'].astype(str).str.contains('100w'),['user_id','product_group']]
             # samples = actions[['user_id']].drop_duplicates()
-            print('samples num is:', samples.shape[0])
+            print('million browse samples num is:', samples.shape[0])
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(samples, gf)
         return samples
@@ -219,6 +218,57 @@ class Rec():
 
         return browse_feat
 
+    def user_million_browse_feature(self, start_date, end_date):
+        print('gen user browse features', start_date, end_date)
+        browse_feat = None
+        dump_path = os.path.join(self.cache_dir, 'user_millon_browse_feat_%s_%s.pkl' % (start_date, end_date))
+        if tf.gfile.Exists(dump_path):
+            with tf.gfile.FastGFile(dump_path, 'rb') as gf:
+                browse_feat = pickle.load(gf)
+        else:
+            interval_browse = self.get_millon_browse(start_date, end_date)
+            spans = [30, 15, 7, 3, 1]
+            for span in spans:
+                span_start_date = datetime.strptime(end_date, '%Y-%m-%d') - timedelta(days=span-1)
+                span_start_date = span_start_date.strftime('%Y-%m-%d')
+                print(span_start_date, end_date)
+                if span_start_date < start_date:
+                    print('warning pass date:', span_start_date, start_date)
+                    span_start_date = start_date
+                    # continue
+                browse = interval_browse[
+                    (interval_browse['date'] <= end_date) & (interval_browse['date'] >= span_start_date)]
+                # browse times
+                browse_product_times = browse.groupby(['user_id', 'product_group']).size().reset_index()
+                browse_product_times.rename(columns={0: '%d_day_browse_id_times' % (span)}, inplace=True)
+                # browse duration
+                browse_product_duration = browse.groupby(['user_id', 'product_group'])['duraction'].sum().reset_index()
+                browse_product_duration.rename(columns={'duraction': '%d_day_browse_id_duration' % (span)},
+                                               inplace=True)
+                # active days
+                active_days = browse.groupby(['user_id', 'date']).size().reset_index()
+                active_days = active_days.groupby('user_id').size().reset_index()
+                active_days.rename(columns={0: '%d_day_user_active_days' % (span)}, inplace=True)
+                active_duration = browse.groupby(['user_id'])['duraction'].sum().reset_index()
+                active_duration.rename(columns={'duraction': '%d_day_user_active_duration' % (span)}, inplace=True)
+
+                browse_feat_tmp = pd.merge(browse_product_times, browse_product_duration, how='left',
+                                           on=['user_id', 'product_group'])
+                browse_feat_tmp = pd.merge(browse_feat_tmp, active_days, how='left', on='user_id')
+                browse_feat_tmp = pd.merge(browse_feat_tmp, active_duration, how='left', on='user_id')
+
+                if browse_feat is not None:
+                    browse_feat = pd.merge(browse_feat, browse_feat_tmp, how='left', on=['user_id', 'product_group'])
+                else:
+                    browse_feat = browse_feat_tmp
+
+            browse_feat.fillna(0, inplace=True)
+            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+                pickle.dump(browse_feat, gf)
+
+        return browse_feat
+
+
     def get_invest(self, start_date, end_date):
         print('get invests', start_date, end_date)
         dump_path = os.path.join(self.cache_dir, 'user_invest_%s_%s.pkl' % (start_date, end_date))
@@ -236,6 +286,29 @@ class Rec():
             invest = invest[(invest['invest_dt'] >= start_date) & (invest['invest_dt'] <= end_date)]
             invest = pd.merge(invest, products[['product_id', 'product_group']], how='left', on='product_id')
             #        invest = invest[(invest['product_id']==147566049) |(invest['product_id']==157269050)]
+            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+                pickle.dump(invest, gf)
+
+        return invest
+
+    def get_million_invest(self, start_date, end_date):
+        print('get invests', start_date, end_date)
+        dump_path = os.path.join(self.cache_dir, 'user_million_invest_%s_%s.pkl' % (start_date, end_date))
+        if tf.gfile.Exists(dump_path):
+            with tf.gfile.FastGFile(dump_path, 'rb') as gf:
+                invest = pickle.load(gf)
+        else:
+            products = self.product_feat()
+            spec_invest_data = os.path.join(self.data_dir, "invests.csv")
+            with tf.gfile.FastGFile(spec_invest_data, 'rb') as gf:
+                invest = pd.read_csv(gf)
+            invest.dropna(inplace=True)
+            invest.rename(columns={'loaner_user_id': 'user_id'}, inplace=True)
+            # invest['date']=invest['request_time'].apply(lambda x:x[:10])
+            invest = invest[(invest['invest_dt'] >= start_date) & (invest['invest_dt'] <= end_date)]
+            invest = pd.merge(invest, products[['product_id', 'product_group']], how='left', on='product_id')
+            invest = invest[invest['product_group'].str.contains("100w")]
+            #invest = invest[(invest['product_id']==147566049) |(invest['product_id']==157269050)]
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
                 pickle.dump(invest, gf)
 
@@ -310,6 +383,23 @@ class Rec():
 
         return invests
 
+    def gen_million_labels(self, start_date, end_date):
+        print('gen lables', start_date, end_date)
+        dump_path = os.path.join(self.cache_dir, 'labels_%s_%s.pkl' % (start_date, end_date))
+        if tf.gfile.Exists(dump_path):
+            with tf.gfile.FastGFile(dump_path, 'rb') as gf:
+                invests = pickle.load(gf)
+        else:
+            invests = self.get_million_invest(start_date, end_date)
+            invests = invests.groupby(['user_id', 'product_group'], as_index=False).sum()
+            invests['label'] = 1
+            invests = invests[['user_id', 'product_group', 'label']]
+            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+                pickle.dump(invests, gf)
+
+        return invests
+
+
     def make_train_set(self, train_start_date, train_end_date, test_start_date, test_end_date):
         print('make train set', train_start_date, train_end_date, test_start_date, test_end_date)
         dump_path = os.path.join(self.cache_dir, 'train_set_%s_%s_%s_%s.pkl' % (
@@ -338,7 +428,7 @@ class Rec():
             # train_set = pd.merge(train_set, product_features, how='left', on='product_group')
             # train_set = pd.merge(train_set, product_acc, how='left', on='product_id')
             labels = self.gen_labels(test_start_date, test_end_date)
-            train_set = pd.merge(train_set, labels, how='left', on=['user_id', 'product_group'])
+            train_set = pd.merge(train_set, labels, how='outer', on=['user_id', 'product_group'])
             del(labels)
             gc.collect()
             train_set['label'].fillna(0, inplace=True)
@@ -354,15 +444,52 @@ class Rec():
         print(train_set.columns)
         return train_set, labels
 
+    def make_million_train_set(self, train_start_date, train_end_date, test_start_date, test_end_date):
+        print('make train set', train_start_date, train_end_date, test_start_date, test_end_date)
+        dump_path = os.path.join(self.cache_dir, 'million_train_set_%s_%s_%s_%s.pkl' % (
+            train_start_date, train_end_date, test_start_date, test_end_date))
+        if tf.gfile.Exists(dump_path):
+            with tf.gfile.FastGFile(dump_path, 'rb') as gf:
+                train_set = pickle.load(gf)
+        else:
+            browse_feat = self.user_browse_feature(train_start_date, train_end_date)
+            invest_feat = self.user_invest_feature(train_start_date, train_end_date)
+            print(browse_feat.columns)
+            print(invest_feat.columns)
+            train_set = pd.merge(browse_feat, invest_feat, how='left', on=['user_id', 'product_group'])
+            del(browse_feat)
+            del(invest_feat)
+            user_feat = self.user_feat()
+            print(user_feat.columns)
+            train_set = pd.merge(train_set, user_feat, how='left', on='user_id')
+            del(user_feat)
+            labels = self.gen_labels(test_start_date, test_end_date)
+            train_set = pd.merge(train_set, labels, how='outer', on=['user_id', 'product_group'])
+            del(labels)
+            gc.collect()
+            train_set['label'].fillna(0, inplace=True)
+            train_set=train_set[train_set['product_group'].str.contains("100w")]
+            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+                pickle.dump(train_set, gf)
+
+        # labels = train_set['label'].copy()
+        # del train_set['user_id']
+        # del train_set['product_group']
+        # del train_set['label']
+        #
+        # print('train set cols:')
+        # print(train_set.columns)
+        # return train_set, labels
+
     def make_test_set(self, test_start_date, test_end_date,test_act_start_date,test_act_end_date):
-        print('make test set', test_start_date, test_end_date)
+        print('make test set{0}-{1}-{2}-{3}'.format( test_start_date, test_end_date,test_act_start_date,test_act_end_date))
         dump_path = os.path.join(self.cache_dir, 'test_set_%s_%s.pkl' % (test_start_date, test_end_date))
         if tf.gfile.Exists(dump_path):
             with tf.gfile.FastGFile(dump_path, 'rb') as gf:
                 test_set = pickle.load(gf)
         else:
-            # test_set = self.gen_sample(test_start_date, test_end_date)
-            test_set = self.gen_million_sample(test_start_date, test_end_date)
+            test_set = self.gen_sample(test_start_date, test_end_date)
+            # test_set = self.gen_million_sample(test_start_date, test_end_date)
             browse_feat = self.user_browse_feature(test_start_date, test_end_date)
             invest_feat = self.user_invest_feature(test_start_date, test_end_date)
             user_feat = self.user_feat()
@@ -400,10 +527,10 @@ class Rec():
         act_start_date = '2018-01-01'
         act_end_date = '2018-01-31'
 
-        test_start_date = '2018-01-01'
-        test_end_date = '2018-01-31'
-        test_act_start_date = '2018-02-01'
-        test_act_end_date = '2018-02-29'
+        test_start_date = '2017-12-31'
+        test_end_date = '2018-01-29'
+        test_act_start_date = '2018-01-30'
+        test_act_end_date = '2018-02-28'
 
         feat_sel_path = os.path.join(self.cache_dir, 'feat_sel.pkl')
         feat_encoder_path = os.path.join(self.cache_dir, 'feat_encoder.pkl')
@@ -444,11 +571,10 @@ class Rec():
             sl = FeatureSelection(self.args)
             sl.fit(X_train, y_train)
             bfp = FeatureEncoder(self.args,sl.numerical_cols,sl.categorical_cols)
+            bfp.fit(X_train[sl.selected_cols],y_train,dump_path)
 
-        X = sl.transform(X_train)
-        del(X_train)
-        gc.collect()
-        bfp.fit_transform(X,y_train, dump_path)
+        sl.transform(X_train)
+        bfp.transform(X_train[sl.selected_cols],y_train, dump_path)
 
         if tf.gfile.Exists(feat_sel_path) and tf.gfile.Exists(feat_encoder_path):
             pass
@@ -474,10 +600,91 @@ class Rec():
             if act_end_date <= end_date:
                 self.make_train_libsvm_matrix(train_start_date,train_end_date,act_start_date,act_end_date)
 
+
+    def make_sliding_train_set(self,start_date, end_date, window=30,step=5):
+        whole = datetime.strptime(end_date, '%Y-%m-%d') - datetime.strptime(start_date, '%Y-%m-%d')
+        l = int(whole.days / step)
+        print("gen train matrix with step", step)
+        for i in tqdm(range(l),desc='train matrix:'):
+            s = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=i * step)
+            train_start_date = datetime.strftime(s, '%Y-%m-%d')
+            s = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i * step)+window-1)
+            train_end_date = datetime.strftime(s, '%Y-%m-%d')
+            e = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i *step)+window)
+            act_start_date = datetime.strftime(e, '%Y-%m-%d')
+            e = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i *step)+2*window-1)
+            act_end_date = datetime.strftime(e, '%Y-%m-%d')
+            if act_end_date <= end_date:
+                self.make_million_train_set(train_start_date,train_end_date,act_start_date,act_end_date)
+
+    def merge_sliding_train_set(self,start_date, end_date, window=30,step=5):
+        whole = datetime.strptime(end_date, '%Y-%m-%d') - datetime.strptime(start_date, '%Y-%m-%d')
+        l = int(whole.days / step)
+        print("merge train set with step", step)
+        res = None
+        for i in tqdm(range(l),desc='train matrix:'):
+            s = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=i * step)
+            train_start_date = datetime.strftime(s, '%Y-%m-%d')
+            s = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i * step)+window-1)
+            train_end_date = datetime.strftime(s, '%Y-%m-%d')
+            e = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i *step)+window)
+            act_start_date = datetime.strftime(e, '%Y-%m-%d')
+            e = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=(i *step)+2*window-1)
+            act_end_date = datetime.strftime(e, '%Y-%m-%d')
+            if act_end_date <= end_date:
+                print('make train set', train_start_date, train_end_date, act_start_date, act_end_date)
+                dump_path = os.path.join(self.cache_dir, 'million_train_set_%s_%s_%s_%s.pkl' % (
+                    train_start_date, train_end_date, act_start_date, act_end_date))
+                train_set = pickle.load(open(dump_path,'rb'))
+                if res is not None:
+                    tmp = pd.concat([res,train_set],axis=0)
+                    del(res)
+                    res = tmp
+                    del(train_set)
+                    gc.collect()
+                else:
+                    res = train_set
+
+        if res is not None:
+            with tf.gfile.FastGFile(os.path.join(self.cache_dir,"merge_million_train_set_%s_%s_window%s_step%s.pkl" % (start_date, end_date,window,step)), 'wb') as gf:
+                pickle.dump(res, gf)
+
+
     def train_lgb(self):
-        train_path = os.path.join(self.cache_dir,"train_matrix_all.libsvm")
-        train_data = lgb.Dataset(train_path)
-        train_data = lgb.Dataset(data, label=label, weight=w)
+        print("=" * 60)
+        start_time = time.time()
+        data_path = os.path.join(self.cache_dir, "train_matrix.csv")
+        with tf.gfile.FastGFile(data_path, 'rb') as gf:
+            data = pd.read_csv(gf)
+
+        cols = [col for col in data.columns.values if col not in ['label']]
+        y =data['label']
+        scale_pos_weight = (y[y == 0].shape[0]) * 1.0 / (y[y == 1].shape[0])
+        X_train, X_test, y_train, y_test = train_test_split(data.loc[:,cols], y, test_size=0.3, random_state=999,
+                                                            shuffle=True)
+        lgbm = lgb.LGBMClassifier(boosting_type='gbdt', max_depth=4, learning_rate=0.3, n_estimators=30,
+                                  scale_pos_weight=scale_pos_weight, min_child_weight=1, subsample=0.7,
+                                  colsample_bytree=0.7,
+                                  reg_alpha=1e-05, reg_lambda=1)
+        lgbm.fit(X_train, y_train)
+        print('training...')
+        lgbm.fit(X_train,y_train)
+        print('[{}] Train xgboost completed'.format(time.time() - start_time))
+        print('predicting...')
+        print('test set...',y_test.value_counts())
+        y_pre = lgbm.predict(X_test)
+        y_pro = lgbm.predict_proba(X_test)[:,1]
+        print("lightgbm model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
+        print("lightgbm model Test Precision: {0}".format(precision_score(y_test, y_pre)))
+        print("lightgbm model Test   Recall : {0}".format(recall_score(y_test, y_pre)))
+        print("lightgbm model Test F1 Score: {0}".format(f1_score(y_test, y_pre)))
+        print("lightgbm model Test AUC of PR-curve: {0}".format(average_precision_score(y_test, y_pro)))
+        print("lightgbm model Test logloss: {0}".format(log_loss(y_test, y_pro)))
+        print("lightgbm Test confusion_matrix :")
+        print(confusion_matrix(y_test, y_pre))
+        del (lgbm)
+        del (y_pre)
+        del (y_pro)
 
     def train(self):
         train_start_date = '2017-12-01'
@@ -640,8 +847,10 @@ def main(_):
     args = parser.parse_args(args_in)
 
     r = Rec(args)
-    r.make_sliding_train_matrix('2017-12-01','2018-03-01')
-    # r.gen_test()
+    # r.make_million_train_set('2017-12-01','2017-12-30','2017-12-31','2018-01-29')
+    # r.make_sliding_train_set('2017-12-01','2018-03-01')
+    # r.merge_sliding_train_set('2017-12-01','2018-03-01')
+    r.train_lgb()
     # r.train()
 
 if __name__ == '__main__':

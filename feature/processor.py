@@ -50,6 +50,16 @@ def load_sparse_csr(filename):
     return csr_matrix((loader['data'], loader['indices'], loader['indptr']),
                       shape=loader['shape'])
 
+def FeatureTypePredictor(TransformerMixin):
+    def __init__(self):
+        pass
+
+    def fit(self, df):
+        pass
+
+    def transform(self, df):
+        pass
+
 def ColumnStats(df,cols):
     for col in cols:
         values = list(df[col].fillna('missing').value_counts().loc[lambda x: x.index != 'missing'].index)
@@ -134,6 +144,9 @@ class FeatureSelection(TransformerMixin):
             self.args = args
             self.data_dir =  self.args.data_dir
             self.model_dir = self.args.model_dir
+        else:
+            self.data_dir = os.getcwd()
+            self.model_dir= os.getcwd()
 
     def fit(self, X, y):
         print("X shape:")
@@ -143,7 +156,7 @@ class FeatureSelection(TransformerMixin):
         origin_features = set(X.columns.values)
         print(len(X.columns.values))
         # drop missing too much columns
-        summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
+        summary_path = os.path.join(self.data_dir,'column_summary.csv')
         if tf.gfile.Exists(summary_path):
             with tf.gfile.FastGFile(summary_path, 'rb') as gf:
                 self.column_summary = pd.read_csv(gf)
@@ -237,10 +250,14 @@ class FeatureEncoder(BaseEstimator):
             self.data_dir =  self.args.data_dir
             self.cache_dir = os.path.join(self.data_dir,'cache')
             self.model_dir = self.args.model_dir
+        else:
+            self.data_dir = os.getcwd()
+            self.cache_dir = os.path.join(self.data_dir, 'cache')
+            self.model_dir = os.path.join(self.data_dir, 'model')
 
     def fit(self, df,y):
         # column summary
-        summary_path = os.path.join(self.args.data_dir,'column_summary.csv')
+        summary_path = os.path.join(self.data_dir,'column_summary.csv')
         # self.column_summary = ColumnSummary(df,dump_path=summary_path)
         if tf.gfile.Exists(summary_path):
             with tf.gfile.FastGFile(summary_path, 'rb') as gf:
@@ -269,7 +286,7 @@ class FeatureEncoder(BaseEstimator):
         self.feature_offset = {}
         self.feature_name = []
         self.length = 0
-        for fp in self.feature_processors:
+        for fp in tqdm(self.feature_processors,desc="fit feature processor"):
             fp.fit(df)
             self.feature_name.append(fp.col_name)
             self.feature_offset[fp.col_name] = self.length
@@ -286,24 +303,23 @@ class FeatureEncoder(BaseEstimator):
         return self
 
     # to libsvm
-    def transform(self, df,y,dump_name,data_type='libsvm'):
+    def transform(self, df,y,dump_name,data_type='csv'):
         print("transform to {} type".format(data_type))
         print(len(df.columns.values))
         for fp in tqdm(self.feature_processors, desc='transform features'):
-            fp.transform(df)
+            df.loc[:,fp.col_name] = fp.transform(df)
 
-        print("persist to  file:{}".format(dump_name))
-        df_numerical = pd.DataFrame(self.scaler.fit_transform(df[self.numerical_cols]),index=df.index, columns=self.numerical_cols)
-        df_new = pd.concat([df[self.categorical_cols],df_numerical],axis=1)
-        df_tmp = df_new[self.feature_name]
+        print("persist to file:{}".format(dump_name))
+        # df_numerical = pd.DataFrame(self.scaler.fit_transform(df[self.numerical_cols]),index=df.index, columns=self.numerical_cols)
+        # df_new = pd.concat([df[self.categorical_cols],df_numerical],axis=1)
+        df_tmp = df.loc[:,self.feature_name]
         if(df_tmp.isnull().values.any()):
-            print("df_tmp has nulls")
+            null_cols = df_tmp.columns[df_tmp.isnull().any()].tolist()
+            print("df_tmp has nulls:",null_cols)
+            null_columns = df_tmp.columns[df_tmp.isnull().any()]
+            df_tmp[null_columns].isnull().sum()
             df_tmp.fillna(0,inplace=True)
 
-        del(df_numerical)
-        del(df_new)
-        del(df)
-        gc.collect()
         dump_path = os.path.join(self.cache_dir,dump_name)
         if data_type=='libsvm' and self.one_hot:
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
@@ -342,7 +358,7 @@ class FeatureEncoder(BaseEstimator):
                     for i, row in df_tmp.iterrows():
                         pbar.update(1)
                         new_line = []
-                        if float(y[i])==0.0:
+                        if float(y.iloc[i])==0.0:
                             label = '0'
                         else:
                             label = '1'
@@ -364,6 +380,12 @@ class FeatureEncoder(BaseEstimator):
                         new_line += "\n"
                         gf.write(new_line)
                         gf.flush()
+                del(df_tmp)
+                gc.collect()
+        elif data_type=='csv' and self.one_hot==False:
+            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+                res = pd.concat([df_tmp,y],axis=1)
+                res.to_csv(gf,header=True,index=False)
                 del(df_tmp)
                 gc.collect()
         elif data_type=='csr':
@@ -441,13 +463,13 @@ class ContinuousFeatureTransformer(TransformerMixin):
 
     def transform(self, df):
         if self.fillmethod == 'random':
-            missing_cnt = df.loc[pd.isnull(df[self.col_name])][self.col_name].size
-            not_missing = df.loc[~pd.isnull(df[self.col_name])][self.col_name]
+            missing_cnt = df.loc[pd.isnull(df[self.col_name]),self.col_name].size
+            not_missing = df.loc[~pd.isnull(df[self.col_name]),self.col_name]
             rnd_value = not_missing.sample(n=missing_cnt)
             df.loc[pd.isnull(df[self.col_name]),self.col_name] = rnd_value
         else:
             df.loc[:,self.col_name].fillna(self.value,inplace=True)
-        return df[self.col_name]
+        return df.loc[:,self.col_name]
 
     def fit_transform(self, df):
         return self.fit(df).transform(df)
@@ -488,7 +510,7 @@ class CategoricalFeatureTransformer(TransformerMixin):
 
     def transform(self, df):
         df.loc[:,self.col_name] = df[self.col_name].astype(str).map(self.feature2id)
-        return df[self.col_name]
+        return df.loc[:,self.col_name]
 
     def fit_transform(self, df):
         return self.fit(df).transform(df)
