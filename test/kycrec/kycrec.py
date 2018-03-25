@@ -14,10 +14,10 @@ import feature.processor
 reload(feature.processor)
 from feature.processor import *
 
-# data_dir = "E:/dataset/kycdata"
-# cache_dir = "E:/dataset/kycdata/cache"
-data_dir = "/home/tanglek/dataset/kycdata"
-cache_dir = "/home/tanglek/dataset/kycdata/cache"
+data_dir = "E:/dataset/kycdata"
+cache_dir = "E:/dataset/kycdata/cache"
+#data_dir = "/home/tanglek/dataset/kycdata"
+#cache_dir = "/home/tanglek/dataset/kycdata/cache"
 
 data = pickle.load(open(os.path.join(cache_dir,'merge_million_train_set_2017-12-01_2018-03-01_window30_step5.pkl'),'rb')).reset_index(drop=True)
 
@@ -37,7 +37,7 @@ feat_imp = pd.Series(gbm.booster().get_fscore()).sort_values(ascending=False)
 import pandas as pd
 feat_imp = pd.Series(gbm.booster().get_fscore()).sort_values(ascending=False)
 feat_imp = pd.Series(gbm.get_fscore()).sort_values(ascending=False)
-gbm
+
 feat_imp = pd.Series(gbm.booster().get_fscore()).sort_values(ascending=False)
 gbm.booster().get_fscore()
 gbm.booster.get_fscore()

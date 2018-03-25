@@ -462,13 +462,26 @@ class ContinuousFeatureTransformer(TransformerMixin):
         return self
 
     def transform(self, df):
-        if self.fillmethod == 'random':
-            missing_cnt = df.loc[pd.isnull(df[self.col_name]),self.col_name].size
-            not_missing = df.loc[~pd.isnull(df[self.col_name]),self.col_name]
-            rnd_value = not_missing.sample(n=missing_cnt)
-            df.loc[pd.isnull(df[self.col_name]),self.col_name] = rnd_value
-        else:
-            df.loc[:,self.col_name].fillna(self.value,inplace=True)
+        # if self.fillmethod == 'random':
+        #     missing_cnt = df.loc[pd.isnull(df[self.col_name]),self.col_name].size
+        #     not_missing = df.loc[~pd.isnull(df[self.col_name]),self.col_name]
+        #     rnd_value = not_missing.sample(n=missing_cnt)
+        #     df.loc[pd.isnull(df[self.col_name]),self.col_name] = rnd_value
+        # else:
+        #     df.loc[:,self.col_name].fillna(self.value,inplace=True)
+        # Replace NaNs with the median or mode of the column depending on the column type
+        try:
+            df[self.col_name].fillna(df[self.col_name].median(), inplace=True)
+        except TypeError:
+            most_frequent = df[self.col_name].mode()
+            # If the mode can't be computed, use the nearest valid value
+            # See https://github.com/rhiever/datacleaner/issues/8
+            if len(most_frequent) > 0:
+                df[self.col_name].fillna(df[self.col_name].mode()[0], inplace=True)
+            else:
+                df[self.col_name].fillna(method='bfill', inplace=True)
+                df[self.col_name].fillna(method='ffill', inplace=True)
+
         return df.loc[:,self.col_name]
 
     def fit_transform(self, df):
