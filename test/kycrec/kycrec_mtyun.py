@@ -10,6 +10,7 @@ import scipy
 from sklearn.datasets import dump_svmlight_file
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, recall_score, precision_score, roc_auc_score, f1_score, accuracy_score, average_precision_score, log_loss
+import matplotlib.pyplot as plt
 from datetime import timedelta
 from datetime import datetime
 from dateutil.parser import parse
@@ -270,7 +271,7 @@ class Rec():
                     (interval_collection['date'] <= end_date) & (interval_collection['date'] >= span_start_date)]
                 # browse times
                 collect_amt = collection.groupby('user_id')['actual_collection_amt'].sum().reset_index()
-                collect_amt.rename(columns={0: '%d_day_collect_amt' % (span)}, inplace=True)
+                collect_amt.rename(columns={'actual_collection_amt': '%d_day_collect_amt' % (span)}, inplace=True)
 
                 if collection_feat is not None:
                     collection_feat = pd.merge(collection_feat, collect_amt, how='left', on='user_id')
@@ -500,9 +501,9 @@ class Rec():
             del(labels)
             gc.collect()
             train_set['label'].fillna(0, inplace=True)
-            train_data=train_set.loc[train_set['product_group'].str.contains("100w")]
+            train_set=train_set[train_set['product_group'].str.contains("100w")]
             with tf.gfile.FastGFile(dump_path, 'wb') as gf:
-                pickle.dump(train_data, gf)
+                pickle.dump(train_set, gf)
             del(train_set)
             gc.collect()
 
@@ -683,6 +684,14 @@ class Rec():
             with tf.gfile.FastGFile(os.path.join(self.cache_dir,"merge_million_train_set_%s_%s_window%s_step%s.pkl" % (start_date, end_date,window,step)), 'wb') as gf:
                 pickle.dump(res, gf)
 
+        cols = [col for col in res.columns.values if col not in ['user_id', 'product_group', 'label']]
+        sl = FeatureSelection()
+        sl.fit(res[cols], res['label'])
+
+        bfp = FeatureEncoder(None, sl.numerical_cols, sl.categorical_cols)
+
+        dump_path = os.path.join(self.cache_dir, 'train_matrix.csv')
+        bfp.fit_transform(res[sl.selected_cols], res['label'], dump_path)
 
     def train_xgb(self):
         print("=" * 60)
@@ -707,8 +716,11 @@ class Rec():
         print('predicting...')
         print('test set...',y_test.value_counts())
         print("feature importance:")
-        feat_imp = pd.Series(gbm.booster().get_fscore()).sort_values(ascending=False).to_dict()
-        print(feat_imp)
+        # plot
+        feat_imp = pd.Series(gbm.get_booster().get_fscore()).sort_values(ascending=False)
+        feat_imp.plot(kind='bar', title='Feature Importances')
+        plt.ylabel('Feature Importance Score')
+
         y_pre = gbm.predict(X_test)
         y_pro = gbm.predict_proba(X_test)[:,1]
         print("Xgboost model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
@@ -719,6 +731,8 @@ class Rec():
         print("Xgboost model Test logloss: {0}".format(log_loss(y_test, y_pro)))
         print("Xgboost Test confusion_matrix :")
         print(confusion_matrix(y_test, y_pre))
+
+
         del (gbm)
         del (y_pre)
         del (y_pro)
@@ -938,10 +952,10 @@ def main(_):
 
     r = Rec(args)
     # r.make_million_train_set('2017-12-01','2017-12-30','2017-12-31','2018-01-29')
-    # r.make_sliding_train_set('2017-12-01','2018-03-01')
-    # r.merge_sliding_train_set('2017-12-01','2018-03-01')
-    r.train_lgb()
-    r.train_xgb()
+    r.make_sliding_train_set('2017-12-01','2018-03-01')
+    r.merge_sliding_train_set('2017-12-01','2018-03-01')
+    # r.train_lgb()
+    # r.train_xgb()
     # r.auto_train()
     # r.train()
 
