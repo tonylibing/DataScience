@@ -17,4 +17,4 @@ from feature.processor import *
 import multiprocessing
 data_dir = "E:/dataset/kycdata"
 cache_dir = "E:/dataset/kycdata/cache"
-cl = pickle.load(open(os.path.join(cache_dir,"user_collection_feat_2017-12-31_2018-01-29.pkl"),'rb'))
+cl = pickle.load(open(os.path.join(cache_dir,"user_invest_feat_2017-12-16_2018-01-14.pkl"),'rb'))
