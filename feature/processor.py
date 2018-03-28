@@ -121,7 +121,7 @@ def ColumnSummary(df, label_col='label', id_cols=None,dump_path=None):
     print("Column Summary")
     print(all)
     if dump_path is not None:
-        with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+        with tf.gfile.FastGFile(dump_path, 'w') as gf:
             all.to_csv(gf,index=False,header=True)
 
     return all
@@ -130,6 +130,7 @@ def ColumnSummary(df, label_col='label', id_cols=None,dump_path=None):
 class FeatureSelection(TransformerMixin):
     def __init__(self,args=None):
         self.column_type = None
+        self.variance_select = False
         self.variance_selector = VarianceThreshold()
         # self.variance_selector = VarianceThreshold(threshold=.001)
         self.scaler = RobustScaler()
@@ -158,7 +159,7 @@ class FeatureSelection(TransformerMixin):
         # drop missing too much columns
         summary_path = os.path.join(self.data_dir,'column_summary.csv')
         if tf.gfile.Exists(summary_path):
-            with tf.gfile.FastGFile(summary_path, 'rb') as gf:
+            with tf.gfile.FastGFile(summary_path, 'r') as gf:
                 self.column_summary = pd.read_csv(gf)
         else:
             self.column_summary = ColumnSummary(X,dump_path=summary_path)
@@ -180,37 +181,40 @@ class FeatureSelection(TransformerMixin):
         print(self.numerical_cols)
         print("categorical features:")
         print(self.categorical_cols)
-        # df_cat = X[self.categorical_cols]
-        df_nonna = X[self.numerical_cols].fillna(0)
-        # df_nonna = X[self.numerical_cols].dropna()
-        print("df_nonna shape:")
-        print(df_nonna.shape)
-        # y_tmp = y[df_nonna.index]
-        # print(df_nonna.index.values)
-        # normalize numerical features
-        # df_norm = pd.DataFrame(normalize(df_nonna,axis=0),columns=self.numerical_cols)
-        df_norm = pd.DataFrame(self.scaler.fit_transform(df_nonna), index=df_nonna.index,columns=self.numerical_cols)
-        self.variance_selector.fit_transform(df_norm)
-        idxs_selected = self.variance_selector.get_support(indices=True)
-        print("feature selected by > variance threshold:")
-        print(df_nonna.columns[idxs_selected])
-        print(len(df_nonna.columns[idxs_selected]))
-        self.selected_cols = list(df_nonna.columns[idxs_selected]) + self.categorical_cols
-        # chi2
-        # df2 = df_nonna[df_nonna.columns[idxs_selected]]
-        # selector = SelectKBest(chi2, k=int(len(df2.columns)*0.95))
-        # df_numerical = selector.fit_transform(df2,y_tmp)
-        # idxs_selected = selector.get_support(indices=True)
-        # print("ch2 selection")
-        # print(df2.columns[idxs_selected])
-        # print(len(df2.columns[idxs_selected]))
-        #
-        # self.selected_cols=list(df2.columns[idxs_selected]) + self.categorical_cols
-        print("after feature selection")
-        print(self.selected_cols)
-        print(len(self.selected_cols))
-        print("dropped columns:")
-        print(origin_features - set(self.selected_cols))
+        if self.variance_select:
+            # df_cat = X[self.categorical_cols]
+            df_nonna = X[self.numerical_cols].fillna(0)
+            # df_nonna = X[self.numerical_cols].dropna()
+            print("df_nonna shape:")
+            print(df_nonna.shape)
+            # y_tmp = y[df_nonna.index]
+            # print(df_nonna.index.values)
+            # normalize numerical features
+            # df_norm = pd.DataFrame(normalize(df_nonna,axis=0),columns=self.numerical_cols)
+            df_norm = pd.DataFrame(self.scaler.fit_transform(df_nonna), index=df_nonna.index,columns=self.numerical_cols)
+            self.variance_selector.fit_transform(df_norm)
+            idxs_selected = self.variance_selector.get_support(indices=True)
+            print("feature selected by > variance threshold:")
+            print(df_nonna.columns[idxs_selected])
+            print(len(df_nonna.columns[idxs_selected]))
+            self.selected_cols = list(df_nonna.columns[idxs_selected]) + self.categorical_cols
+            # chi2
+            # df2 = df_nonna[df_nonna.columns[idxs_selected]]
+            # selector = SelectKBest(chi2, k=int(len(df2.columns)*0.95))
+            # df_numerical = selector.fit_transform(df2,y_tmp)
+            # idxs_selected = selector.get_support(indices=True)
+            # print("ch2 selection")
+            # print(df2.columns[idxs_selected])
+            # print(len(df2.columns[idxs_selected]))
+            #
+            # self.selected_cols=list(df2.columns[idxs_selected]) + self.categorical_cols
+            print("after feature selection")
+            print(self.selected_cols)
+            print(len(self.selected_cols))
+            print("dropped columns:")
+            print(origin_features - set(self.selected_cols))
+        else:
+            self.selected_cols = self.numerical_cols + self.categorical_cols
 
         return self
 

@@ -84,6 +84,7 @@ class Rec():
         self.data_dir = self.args.data_dir
         self.cache_dir = os.path.join(self.data_dir, 'cache')
         self.model_type = self.args.model_type
+        self.csv_header = True
 
     def value_customer(self):
         product_dir = os.path.join(self.data_dir, "value_customer.csv")
@@ -101,7 +102,10 @@ class Rec():
         else:
             user_feat_dir = os.path.join(self.data_dir, "value_customer_features.csv")
             with open(user_feat_dir, 'rb') as gf:
-                user_feats = pd.read_csv(gf,header=None,names=['user_id','aum','historical_max_aum','template_id','template_version_no','class_level','score','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11','q12','q13','q14','q15','q16','q17','q18','q19','q20','bank_3m_in_amt','bank_24m_in_amt','bank_3m_out_amt','bank_24m_out_amt','credit_3m_out_cnt','credit_24m_out_cnt','bank_3m_in_cnt','bank_24m_in_cnt','bank_3m_out_cnt','bank_24m_out_cnt','bank_3m_invest_cnt','bank_24m_invest_cnt','bank_3m_in_max_amt','bank_24m_in_max_amt','spend_amt_rn_rank','spend_cnt_rn_rank','income_per_month_predict','spend_amt_per_month','spend_cnt_per_month','spend_age','cons_tot_m3_num','cons_tot_m3_pay','cons_tot_m12_num','cons_tot_m12_pay','cons_max_m3_pay','cons_max_m12_pay','is_cdm','marriage_status_cd','education_cd','family_member_quantiny','industry','prof','life_cycle','age_range','cust_aum_flag','group_vip_level','group_vip_flag','toa_pa_act_assets_amt','toa_pa_act_debts_amt','posses_house_auto_flag','series_prod_type_count','pc_insu_vip_flag','pc_insu_vip_level','hold_auto_prod_flag','hold_moto_prod_flag','pc_prod_type_count','pnc_aum_flag','vehicle_loss_insured_value','vehicle_quantity','year_activity_level','quar_activity_level','year_trade_level','quar_trade_level','is_sx','elis_aum_flag2','vip_flag','wealth_score','invest_exp','risk_sensitive','invest_lately_12m_avg_aum','invest_lately_24m_max_aum','invest_lately_3m_b2c_amt','invest_lately_3m_b2c_cnt','invest_lately_3m_amt','invest_lately_3m_cnt','invest_lately_3m_avg_aum','invest_lately_3m_max_aum','inv_100w_cnt','inv_10w_cnt','inv_30w_cnt','inv_50w_cnt','inv_5w_cnt','invest_amt','invest_b2c_amt','invest_b2c_cnt','invest_cnt','invest_risklevel_unique','invest_most_min_invest_amt','invest_most_period_by_days','invest_most_rate','invest_most_risk_level','invest_total_max_amt'])
+                if self.csv_header:
+                    user_feats = pd.read_csv(gf)
+                else:
+                    user_feats = pd.read_csv(gf,header=None,names=['user_id','aum','historical_max_aum','template_id','template_version_no','class_level','score','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11','q12','q13','q14','q15','q16','q17','q18','q19','q20','bank_3m_in_amt','bank_24m_in_amt','bank_3m_out_amt','bank_24m_out_amt','credit_3m_out_cnt','credit_24m_out_cnt','bank_3m_in_cnt','bank_24m_in_cnt','bank_3m_out_cnt','bank_24m_out_cnt','bank_3m_invest_cnt','bank_24m_invest_cnt','bank_3m_in_max_amt','bank_24m_in_max_amt','spend_amt_rn_rank','spend_cnt_rn_rank','income_per_month_predict','spend_amt_per_month','spend_cnt_per_month','spend_age','cons_tot_m3_num','cons_tot_m3_pay','cons_tot_m12_num','cons_tot_m12_pay','cons_max_m3_pay','cons_max_m12_pay','is_cdm','marriage_status_cd','education_cd','family_member_quantiny','industry','prof','life_cycle','age_range','cust_aum_flag','group_vip_level','group_vip_flag','toa_pa_act_assets_amt','toa_pa_act_debts_amt','posses_house_auto_flag','series_prod_type_count','pc_insu_vip_flag','pc_insu_vip_level','hold_auto_prod_flag','hold_moto_prod_flag','pc_prod_type_count','pnc_aum_flag','vehicle_loss_insured_value','vehicle_quantity','year_activity_level','quar_activity_level','year_trade_level','quar_trade_level','is_sx','elis_aum_flag2','vip_flag','wealth_score','invest_exp','risk_sensitive','invest_lately_12m_avg_aum','invest_lately_24m_max_aum','invest_lately_3m_b2c_amt','invest_lately_3m_b2c_cnt','invest_lately_3m_amt','invest_lately_3m_cnt','invest_lately_3m_avg_aum','invest_lately_3m_max_aum','inv_100w_cnt','inv_10w_cnt','inv_30w_cnt','inv_50w_cnt','inv_5w_cnt','invest_amt','invest_b2c_amt','invest_b2c_cnt','invest_cnt','invest_risklevel_unique','invest_most_min_invest_amt','invest_most_period_by_days','invest_most_rate','invest_most_risk_level','invest_total_max_amt'])
 
             mod = user_feats['education_cd'].mode()[0]
             user_feats['education_cd'].replace('‰', mod, inplace=True)
@@ -129,7 +133,10 @@ class Rec():
         else:
             product_dir = os.path.join(self.data_dir, "products.csv")
             with open(product_dir, 'rb') as gf:
-                products = pd.read_csv(gf,header=None,names=['id','product_category','cmn_product_category','item','product_price','invest_period_by_days'])
+                if self.csv_header:
+                    products = pd.read_csv(gf)
+                else:
+                    products = pd.read_csv(gf,header=None,names=['id','product_category','cmn_product_category','item','product_price','invest_period_by_days'])
             # products.dropna(inplace=True)
             products.rename(columns={'id': 'product_id'}, inplace=True)
             products.loc[products['product_id'] == 147566049, 'invest_period_by_days'] = 28
@@ -207,8 +214,12 @@ class Rec():
                 browse = pickle.load(gf)
         else:
             with open(spec_browse_data, 'rb') as gf:
-                browse = pd.read_csv(gf,header=None,names=['user_id','product_id','request_time','duraction'])
+                if self.csv_header:
+                    browse = pd.read_csv(gf)
+                else:
+                    browse = pd.read_csv(gf,header=None,names=['user_id','product_id','request_time','duraction'])
             browse.dropna(inplace=True)
+            # browse['user_id'] = browse['user_id'].apply(lambda x:int(float(x)))
             browse['user_id'] = browse['user_id'].astype(int)
             browse['date'] = browse['request_time'].apply(lambda x: x[:10])
             del browse['request_time']
@@ -289,7 +300,10 @@ class Rec():
                 collection = pickle.load(gf)
         else:
             with open(collect_amt_data, 'rb') as gf:
-                collection = pd.read_csv(gf,header=None,names=['user_id','actual_collection_amt','actual_collection_time'])
+                if self.csv_header:
+                    collection = pd.read_csv(gf)
+                else:
+                    collection = pd.read_csv(gf,header=None,names=['user_id','actual_collection_amt','actual_collection_time'])
 
             collection.dropna(inplace=True)
             collection['user_id'] = collection['user_id'].astype(int)
@@ -345,7 +359,10 @@ class Rec():
         else:
             audit_data = os.path.join(self.data_dir, "audit_status.csv")
             with open(audit_data, 'rb') as gf:
-                audit_status = pd.read_csv(gf,header=None,names=['user_id','media1_audit_status','media2_audit_status','media3_audit_status'])
+                if self.csv_header:
+                    audit_status = pd.read_csv(gf)
+                else:
+                    audit_status = pd.read_csv(gf,header=None,names=['user_id','media1_audit_status','media2_audit_status','media3_audit_status'])
                 audit_status['user_id'] = audit_status['user_id'].astype(int)
             with open(dump_path, 'wb') as gf:
                 pickle.dump(audit_status, gf)
@@ -361,7 +378,10 @@ class Rec():
         else:
             audit_data = os.path.join(self.data_dir, "subscribe_status.csv")
             with open(audit_data, 'rb') as gf:
-                subscribe_status = pd.read_csv(gf,header=None,names=['user_id','is_email_unsubscribe','is_sms_unsubscribe'])
+                if self.csv_header:
+                    subscribe_status = pd.read_csv(gf)
+                else:
+                    subscribe_status = pd.read_csv(gf,header=None,names=['user_id','is_email_unsubscribe','is_sms_unsubscribe'])
                 subscribe_status['user_id'] = subscribe_status['user_id'].astype(int)
             with open(dump_path, 'wb') as gf:
                 pickle.dump(subscribe_status, gf)
@@ -379,7 +399,10 @@ class Rec():
             products = self.product_feat()
             spec_invest_data = os.path.join(self.data_dir, "invests.csv")
             with open(spec_invest_data, 'rb') as gf:
-                invest = pd.read_csv(gf,header=None,names=['loaner_user_id','product_id','investment_amount','invest_dt'])
+                if self.csv_header:
+                    invest = pd.read_csv(gf)
+                else:
+                    invest = pd.read_csv(gf,header=None,names=['loaner_user_id','product_id','investment_amount','invest_dt'])
             invest.dropna(inplace=True)
             invest.rename(columns={'loaner_user_id': 'user_id'}, inplace=True)
             # invest['date']=invest['request_time'].apply(lambda x:x[:10])
@@ -541,8 +564,8 @@ class Rec():
         else:
             browse_feat = self.user_browse_feature(train_start_date, train_end_date)
             invest_feat = self.user_invest_feature(train_start_date, train_end_date)
-            print(browse_feat.columns)
-            print(invest_feat.columns)
+            print(browse_feat.columns.values)
+            print(invest_feat.columns.values)
             train_set = pd.merge(browse_feat, invest_feat, how='outer', on='user_id')
             train_set.fillna(0,inplace=True)
             # pickle.dump(train_set, open(os.path.join(self.cache_dir,'browse_invest_{0}_{1}.pkl'.format(train_start_date,train_end_date)),'wb'))
@@ -550,15 +573,17 @@ class Rec():
             del (invest_feat)
             gc.collect()
             user_feat = self.user_feat()
-            print(user_feat.columns)
+            print(user_feat.columns.values)
             train_set = pd.merge(user_feat,train_set, how='left', on='user_id')
             del (user_feat)
             gc.collect()
             collect_feat = self.user_collection_feature(train_start_date, train_end_date)
+            print(collect_feat.columns.values)
             train_set = pd.merge(train_set, collect_feat, how='left', on='user_id')
             del (collect_feat)
             gc.collect()
             labels = self.gen_labels(test_start_date, test_end_date)
+            print(labels.columns.values)
             train_set = pd.merge(train_set, labels, how='outer', on='user_id')
             # pickle.dump(train_set, open(
             #     os.path.join(self.cache_dir, 'trainset_labels_{0}_{1}.pkl'.format(train_start_date, train_end_date)),
@@ -567,7 +592,7 @@ class Rec():
             gc.collect()
             train_set['label'].fillna(0, inplace=True)
             num_cols = [i for i in train_set.columns.values if
-                        (('times' in i) or ('amt' in i) or ('duraction' in i) or ('cnt' in i) or ('days' in i))]
+                        (('times' in i) or ('amt' in i) or ('duration' in i) or ('cnt' in i) or ('days' in i))]
             train_set[num_cols] = train_set[num_cols].fillna(0)
             # train_set = train_set[train_set['product_group'].str.contains("100w")]
             with open(dump_path, 'wb') as gf:
@@ -778,7 +803,7 @@ class Rec():
         cols = [col for col in data.columns.values if col not in ['label']]
         y = data['label']
         scale_pos_weight = (y[y == 0].shape[0]) * 1.0 / (y[y == 1].shape[0])
-        X_train, X_test, y_train, y_test = train_test_split(data.loc[:, cols], y, test_size=0.3, random_state=999,
+        X_train, X_test, y_train, y_test = train_test_split(data.loc[:, cols], y, test_size=0.2, random_state=999,
                                                             stratify=y)
 
         threads = int(0.8 * multiprocessing.cpu_count())
@@ -813,25 +838,30 @@ class Rec():
     def train_lgb(self):
         print("=" * 60)
         start_time = time.time()
-        data_path = os.path.join(self.cache_dir, "train_matrix.csv")
+        data_path = os.path.join(self.cache_dir, "test_matrix.csv")
         with open(data_path, 'rb') as gf:
             data = pd.read_csv(gf)
 
         cols = [col for col in data.columns.values if col not in ['label']]
+        print("input features:")
+        print(cols)
         y = data['label']
         scale_pos_weight = (y[y == 0].shape[0]) * 1.0 / (y[y == 1].shape[0])
-        X_train, X_test, y_train, y_test = train_test_split(data.loc[:, cols], y, test_size=0.3, random_state=999,
+        X_train, X_test, y_train, y_test = train_test_split(data.loc[:, cols], y, test_size=0.2, random_state=999,
                                                             stratify=y)
         lgbm = lgb.LGBMClassifier(boosting_type='gbdt', max_depth=4, learning_rate=0.3, n_estimators=30,
                                   scale_pos_weight=scale_pos_weight, min_child_weight=1, subsample=0.7,
                                   colsample_bytree=0.7,
                                   reg_alpha=1e-05, reg_lambda=1)
         lgbm.fit(X_train, y_train)
+        print('training set...')
+        print(y_train.value_counts())
         print('training...')
         lgbm.fit(X_train, y_train)
         print('[{}] Train xgboost completed'.format(time.time() - start_time))
         print('predicting...')
-        print('test set...', y_test.value_counts())
+        print('test set...')
+        print(y_test.value_counts())
         y_pre = lgbm.predict(X_test)
         y_pro = lgbm.predict_proba(X_test)[:, 1]
         print("lightgbm model Test AUC Score: {0}".format(roc_auc_score(y_test, y_pro)))
@@ -855,7 +885,7 @@ class Rec():
 
         cols = [col for col in data.columns.values if col not in ['label']]
         y = data['label']
-        X_train, X_test, y_train, y_test = train_test_split(data.loc[:, cols], y, test_size=0.3, random_state=999,
+        X_train, X_test, y_train, y_test = train_test_split(data.loc[:, cols], y, test_size=0.2, random_state=999,
                                                             stratify=y)
         tpot = TPOTClassifier(generations=5, population_size=20, verbosity=2)
         print('training...')
@@ -1028,8 +1058,8 @@ if __name__ == '__main__':
 
     r = Rec(args)
     # r.make_million_train_set('2017-12-01','2017-12-30','2017-12-31','2018-01-29')
-    r.make_sliding_train_set('2017-12-01', '2018-03-01')
-    r.merge_sliding_train_set('2017-12-01', '2018-03-01')
+    # r.make_sliding_train_set('2017-12-01', '2018-03-01')
+    # r.merge_sliding_train_set('2017-12-01', '2018-03-01')
     r.train_lgb()
     # r.train_xgb()
     # r.auto_train()
