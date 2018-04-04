@@ -18,7 +18,7 @@ from scipy import sparse
 import scipy.stats.stats as stats
 import xgboost as xgb
 import lightgbm as lgb
-import tensorflow as tf
+# import tensorflow as tf
 from pandas.io.json import json_normalize
 from scipy.sparse import csr_matrix
 from sklearn import metrics
@@ -73,7 +73,8 @@ def ColumnInfo(df, col):
     print(col)
     col_type = ''
     missing_pct = 0.0
-    # rows = np.random.choice(df.index.values, 1000)
+    # sample_size = min(1000,int(0.1*len(df.index.values)))
+    # rows = np.random.choice(df.index.values, sample_size)
     # df_sample = df.ix[rows][col]
     df_sample = df[col].dropna()
     uniq_vals = list(set(df_sample))
@@ -81,12 +82,16 @@ def ColumnInfo(df, col):
     if np.nan in uniq_vals:
         uniq_vals.remove(np.nan)
 
-    if col.endswith('time'):
+    if len(uniq_vals)==0:
+        col_type='total missing'
+    elif col.endswith('time'):
         col_type = 'time'
     elif col.endswith('_id'):
         col_type = 'id'
         # col_type = 'categorical'
         # or ('level' in col)
+    elif 'status' in col:
+        col_type='categorical'
     elif col.startswith('dayOf') or col.startswith('hourOf') or col.startswith('is_') or ('category' in col)  or (
                 'flag' in col) or ('version' in col):
         col_type = 'categorical'
@@ -121,7 +126,7 @@ def ColumnSummary(df, label_col='label', id_cols=None,dump_path=None):
     print("Column Summary")
     print(all)
     if dump_path is not None:
-        with tf.gfile.FastGFile(dump_path, 'w') as gf:
+        with open(dump_path, 'w') as gf:
             all.to_csv(gf,index=False,header=True)
 
     return all
@@ -143,11 +148,19 @@ class FeatureSelection(TransformerMixin):
         self.model_dir = None
         if args is not None:
             self.args = args
-            self.data_dir =  self.args.data_dir
+            self.data_dir = self.args.data_dir
+            self.cache_dir = self.args.cache_dir
             self.model_dir = self.args.model_dir
         else:
             self.data_dir = os.getcwd()
-            self.model_dir= os.getcwd()
+            self.cache_dir = os.path.join(self.data_dir, 'cache')
+            self.model_dir = os.path.join(self.data_dir, 'model')
+
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
+        if not os.path.exists(self.model_dir):
+            os.makedirs(self.model_dir)
+
 
     def fit(self, X, y):
         print("X shape:")
@@ -158,11 +171,11 @@ class FeatureSelection(TransformerMixin):
         print(len(X.columns.values))
         # drop missing too much columns
         summary_path = os.path.join(self.data_dir,'column_summary.csv')
-        if tf.gfile.Exists(summary_path):
-            with tf.gfile.FastGFile(summary_path, 'r') as gf:
-                self.column_summary = pd.read_csv(gf)
-        else:
-            self.column_summary = ColumnSummary(X,dump_path=summary_path)
+        # if os.path.exists(summary_path):
+        #     with open(summary_path, 'r') as gf:
+        #         self.column_summary = pd.read_csv(gf)
+        # else:
+        self.column_summary = ColumnSummary(X,dump_path=summary_path)
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
         drop_cols = self.column_summary[self.column_summary['missing_pct'] > 0.99]['col_name']
 
@@ -251,26 +264,34 @@ class FeatureEncoder(BaseEstimator):
         self.cache_dir = None
         if args is not None:
             self.args = args
-            self.data_dir =  self.args.data_dir
-            self.cache_dir = os.path.join(self.data_dir,'cache')
+            self.data_dir = self.args.data_dir
+            self.cache_dir = self.args.cache_dir
             self.model_dir = self.args.model_dir
         else:
             self.data_dir = os.getcwd()
             self.cache_dir = os.path.join(self.data_dir, 'cache')
             self.model_dir = os.path.join(self.data_dir, 'model')
 
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
+        if not os.path.exists(self.model_dir):
+            os.makedirs(self.model_dir)
+
     def fit(self, df,y):
+        #param:col,coltype,fillmethod,fillvalue
         # column summary
         summary_path = os.path.join(self.data_dir,'column_summary.csv')
-        # self.column_summary = ColumnSummary(df,dump_path=summary_path)
-        if tf.gfile.Exists(summary_path):
-            with tf.gfile.FastGFile(summary_path, 'rb') as gf:
-                self.column_summary = pd.read_csv(gf)
-                cols1=self.column_summary['col_name'].values.tolist()
-                cols2 = self.numerical_cols + self.categorical_cols
-                cols = list(set(cols1) - set(cols2))
-                self.column_summary = self.column_summary[~self.column_summary['col_name'].isin(cols)]
-                print(self.column_summary)
+        #
+        # if os.path.exists(summary_path):
+        #     with open(summary_path, 'rb') as gf:
+        #         self.column_summary = pd.read_csv(gf)
+        #         cols1=self.column_summary['col_name'].values.tolist()
+        #         cols2 = self.numerical_cols + self.categorical_cols
+        #         cols = list(set(cols1) - set(cols2))
+        #         self.column_summary = self.column_summary[~self.column_summary['col_name'].isin(cols)]
+        #         print(self.column_summary)
+        # else:
+        self.column_summary = ColumnSummary(df, dump_path=summary_path)
 
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
 
@@ -326,7 +347,7 @@ class FeatureEncoder(BaseEstimator):
 
         dump_path = os.path.join(self.cache_dir,dump_name)
         if data_type=='libsvm' and self.one_hot:
-            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+            with open(dump_path, 'wb') as gf:
                 with tqdm(total=len(df_tmp), desc='transform to libsvm') as pbar:
                     for i, row in df_tmp.iterrows():
                         pbar.update(1)
@@ -357,7 +378,7 @@ class FeatureEncoder(BaseEstimator):
                 del(df_tmp)
                 gc.collect()
         elif data_type=='libsvm' and self.one_hot==False:
-            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
+            with open(dump_path, 'wb') as gf:
                 with tqdm(total=len(df_tmp), desc='transform to libsvm') as pbar:
                     for i, row in df_tmp.iterrows():
                         pbar.update(1)
@@ -386,12 +407,15 @@ class FeatureEncoder(BaseEstimator):
                         gf.flush()
                 del(df_tmp)
                 gc.collect()
-        elif data_type=='csv' and self.one_hot==False:
-            with tf.gfile.FastGFile(dump_path, 'wb') as gf:
-                res = pd.concat([df_tmp,y],axis=1)
-                res.to_csv(gf,header=True,index=False)
-                del(df_tmp)
-                gc.collect()
+        elif data_type=='csv' and self.one_hot is False:
+            res = pd.concat([df_tmp, y], axis=1)
+            return res
+            # with open(dump_path, 'w') as gf:
+            #     res = pd.concat([df_tmp,y],axis=1)
+            #     res.to_csv(gf,header=True,index=False)
+            #     del(df_tmp)
+            #     gc.collect()
+            #     return res
         elif data_type=='csr':
             data = []
             row_idx = []
@@ -486,7 +510,7 @@ class ContinuousFeatureTransformer(TransformerMixin):
                 df[self.col_name].fillna(method='bfill', inplace=True)
                 df[self.col_name].fillna(method='ffill', inplace=True)
 
-        return df.loc[:,self.col_name]
+        return df.loc[:, self.col_name]
 
     def fit_transform(self, df):
         return self.fit(df).transform(df)
@@ -527,7 +551,7 @@ class CategoricalFeatureTransformer(TransformerMixin):
 
     def transform(self, df):
         df.loc[:,self.col_name] = df[self.col_name].astype(str).map(self.feature2id)
-        return df.loc[:,self.col_name]
+        return df[self.col_name]
 
     def fit_transform(self, df):
         return self.fit(df).transform(df)
