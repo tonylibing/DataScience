@@ -6,6 +6,8 @@ import multiprocessing
 import psutil
 import argparse
 import pickle
+import joblib
+import gzip
 import scipy
 from sklearn.datasets import dump_svmlight_file
 from sklearn.model_selection import train_test_split
@@ -33,51 +35,6 @@ from feature.processor import *
 
 FLAGS = None
 
-
-def print_cm(cm, labels, hide_zeroes=False, hide_diagonal=False, hide_threshold=None):
-    """pretty print for confusion matrixes"""
-    columnwidth = max([len(x) for x in labels] + [5])  # 5 is value length
-    empty_cell = " " * columnwidth
-    # Print header
-    print("    " + empty_cell, end=" ")
-    for label in labels:
-        print("%{0}s".format(columnwidth) % label, end=" ")
-    print()
-    # Print rows
-    for i, label1 in enumerate(labels):
-        print("    %{0}s".format(columnwidth) % label1, end=" ")
-        for j in range(len(labels)):
-            cell = "%{0}.1f".format(columnwidth) % cm[i, j]
-            if hide_zeroes:
-                cell = cell if float(cm[i, j]) != 0 else empty_cell
-            if hide_diagonal:
-                cell = cell if i != j else empty_cell
-            if hide_threshold:
-                cell = cell if cm[i, j] > hide_threshold else empty_cell
-            print(cell, end=" ")
-        print()
-
-def plot_confusion_matrix(cm, genre_list, name, title):
-    pylab.clf()
-    pylab.matshow(cm, fignum=False, cmap='Blues', vmin=0, vmax=1.0)
-    ax = pylab.axes()
-    ax.set_xticks(range(len(genre_list)))
-    ax.set_xticklabels(genre_list)
-    ax.xaxis.set_ticks_position("bottom")
-    ax.set_yticks(range(len(genre_list)))
-    ax.set_yticklabels(genre_list)
-    pylab.title(title)
-    pylab.colorbar()
-    pylab.grid(False)
-    pylab.show()
-
-def check_col(user_feats, cols):
-    for col in cols:
-        s = user_feats[user_feats[col].astype(str).str.contains('‰')]
-        if s.size > 0:
-            print(col)
-
-
 class Rec():
     def __init__(self, args):
         self.args = args
@@ -85,19 +42,12 @@ class Rec():
         self.cache_dir = os.path.join(self.data_dir, 'cache')
         self.model_type = self.args.model_type
 
-    def value_customer(self):
-        product_dir = os.path.join(self.data_dir, "value_customer.csv")
-        with open(product_dir, 'rb') as gf:
-            value_customers = pd.read_csv(gf)
-        value_customers['user_id'] = value_customers['user_id'].astype(int)
-        return value_customers
-
     def user_feat(self):
         print('gen user feat')
-        dump_path = os.path.join(self.cache_dir, 'user_feat.pkl')
+        dump_path = os.path.join(self.cache_dir, 'user_feat.gz')
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                user_feats = pickle.load(gf)
+                user_feats = joblib.load(gf)
         else:
             user_feat_dir = os.path.join(self.data_dir, "value_customer_features.csv")
             with open(user_feat_dir, 'rb') as gf:
@@ -116,7 +66,7 @@ class Rec():
             del (audit_status)
             gc.collect()
             with open(dump_path, 'wb') as gf:
-                pickle.dump(user_feats, gf)
+                joblib.dump(user_feats, gf)
 
         return user_feats
 
@@ -125,7 +75,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'product_feat.pkl')
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                products = pickle.load(gf)
+                products = joblib.load(gf)
         else:
             product_dir = os.path.join(self.data_dir, "products.csv")
             with open(product_dir, 'rb') as gf:
@@ -159,7 +109,7 @@ class Rec():
             # products.drop(['product_category', 'cmn_product_category', 'item', 'product_price', 'invest_period_by_days'],axis=1, inplace=True)
             # add product group cvr features
             with open(dump_path, 'wb') as gf:
-                pickle.dump(products, gf)
+                joblib.dump(products, gf)
 
         return products
 
@@ -168,7 +118,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'samples_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                samples = pickle.load(gf)
+                samples = joblib.load(gf)
         else:
             actions = self.get_browse(start_date, end_date)
             samples = actions.groupby(['user_id', 'product_group']).size().reset_index()
@@ -176,7 +126,7 @@ class Rec():
             # samples = actions[['user_id']].drop_duplicates()
             print('samples num is:', samples.shape[0])
             with open(dump_path, 'wb') as gf:
-                pickle.dump(samples, gf)
+                joblib.dump(samples, gf)
         return samples
 
     def gen_million_sample(self, start_date, end_date):
@@ -186,7 +136,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'samples_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                samples = pickle.load(gf)
+                samples = joblib.load(gf)
         else:
             actions = self.get_browse(start_date, end_date)
             samples = actions.groupby(['user_id', 'product_group']).size().reset_index()
@@ -194,7 +144,7 @@ class Rec():
             # samples = actions[['user_id']].drop_duplicates()
             print('million browse samples num is:', samples.shape[0])
             with open(dump_path, 'wb') as gf:
-                pickle.dump(samples, gf)
+                joblib.dump(samples, gf)
         return samples
 
     def get_browse(self, start_date, end_date):
@@ -203,7 +153,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'user_browse_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                browse = pickle.load(gf)
+                browse = joblib.load(gf)
         else:
             with open(spec_browse_data, 'rb') as gf:
                 browse = pd.read_csv(gf)
@@ -216,7 +166,7 @@ class Rec():
             browse = pd.merge(browse, products[['product_id', 'product_group']], how='left', on='product_id')
             # browse = browse[(browse['product_id']==147566049) | (browse['product_id']==157269050)]
             with open(dump_path, 'wb') as gf:
-                pickle.dump(browse, gf)
+                joblib.dump(browse, gf)
 
         return browse
 
@@ -226,7 +176,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'user_browse_feat_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                browse_feat = pickle.load(gf)
+                browse_feat = joblib.load(gf)
         else:
             interval_browse = self.get_browse(start_date, end_date)
             spans = [30, 15, 7, 3, 1]
@@ -266,7 +216,7 @@ class Rec():
 
             browse_feat.fillna(0, inplace=True)
             with open(dump_path, 'wb') as gf:
-                pickle.dump(browse_feat, gf)
+                joblib.dump(browse_feat, gf)
 
         return browse_feat
 
@@ -276,7 +226,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'user_collection_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                collection = pickle.load(gf)
+                collection = joblib.load(gf)
         else:
             with open(collect_amt_data, 'rb') as gf:
                 collection = pd.read_csv(gf)
@@ -287,7 +237,7 @@ class Rec():
             del collection['actual_collection_time']
             collection = collection[(collection['date'] >= start_date) & (collection['date'] <= end_date)]
             with open(dump_path, 'wb') as gf:
-                pickle.dump(collection, gf)
+                joblib.dump(collection, gf)
 
         return collection
 
@@ -297,7 +247,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'user_collection_feat_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                collection_feat = pickle.load(gf)
+                collection_feat = joblib.load(gf)
         else:
             interval_collection = self.get_collection(start_date, end_date)
             spans = [30, 15, 7, 3, 1]
@@ -322,7 +272,7 @@ class Rec():
 
             collection_feat.fillna(0, inplace=True)
             with open(dump_path, 'wb') as gf:
-                pickle.dump(collection_feat, gf)
+                joblib.dump(collection_feat, gf)
 
         return collection_feat
 
@@ -331,14 +281,14 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'user_audit_status.pkl')
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                audit_status = pickle.load(gf)
+                audit_status = joblib.load(gf)
         else:
             audit_data = os.path.join(self.data_dir, "audit_status.csv")
             with open(audit_data, 'rb') as gf:
                 audit_status = pd.read_csv(gf)
                 audit_status['user_id'] = audit_status['user_id'].astype(int)
             with open(dump_path, 'wb') as gf:
-                pickle.dump(audit_status, gf)
+                joblib.dump(audit_status, gf)
 
         return audit_status
 
@@ -347,14 +297,14 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'user_subscribe_status.pkl')
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                subscribe_status = pickle.load(gf)
+                subscribe_status = joblib.load(gf)
         else:
             audit_data = os.path.join(self.data_dir, "subscribe_status.csv")
             with open(audit_data, 'rb') as gf:
                 subscribe_status = pd.read_csv(gf)
                 subscribe_status['user_id'] = subscribe_status['user_id'].astype(int)
             with open(dump_path, 'wb') as gf:
-                pickle.dump(subscribe_status, gf)
+                joblib.dump(subscribe_status, gf)
 
         del (subscribe_status['stat_date'])
         return subscribe_status
@@ -364,7 +314,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'user_invest_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                invest = pickle.load(gf)
+                invest = joblib.load(gf)
         else:
             products = self.product_feat()
             spec_invest_data = os.path.join(self.data_dir, "invests.csv")
@@ -377,7 +327,7 @@ class Rec():
             invest = pd.merge(invest, products[['product_id', 'product_group']], how='left', on='product_id')
             #        invest = invest[(invest['product_id']==147566049) |(invest['product_id']==157269050)]
             with open(dump_path, 'wb') as gf:
-                pickle.dump(invest, gf)
+                joblib.dump(invest, gf)
 
         return invest
 
@@ -387,7 +337,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'user_invest_feat_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                invest_feat = pickle.load(gf)
+                invest_feat = joblib.load(gf)
         else:
             interval_invest = self.get_invest(start_date, end_date)
             spans = [30, 15, 7, 3, 1]
@@ -430,7 +380,7 @@ class Rec():
 
             invest_feat.fillna(0, inplace=True)
             with open(dump_path, 'wb') as gf:
-                pickle.dump(invest_feat, gf)
+                joblib.dump(invest_feat, gf)
 
         return invest_feat
 
@@ -439,14 +389,14 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'labels_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                invests = pickle.load(gf)
+                invests = joblib.load(gf)
         else:
             invests = self.get_invest(start_date, end_date)
             invests = invests.groupby(['user_id', 'product_group'], as_index=False).sum()
             invests['label'] = 1
             invests = invests[['user_id', 'product_group', 'label']]
             with open(dump_path, 'wb') as gf:
-                pickle.dump(invests, gf)
+                joblib.dump(invests, gf)
 
         return invests
 
@@ -455,14 +405,14 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'labels_%s_%s.pkl' % (start_date, end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                invests = pickle.load(gf)
+                invests = joblib.load(gf)
         else:
             invests = self.get_million_invest(start_date, end_date)
             invests = invests.groupby(['user_id', 'product_group'], as_index=False).sum()
             invests['label'] = 1
             invests = invests[['user_id', 'product_group', 'label']]
             with open(dump_path, 'wb') as gf:
-                pickle.dump(invests, gf)
+                joblib.dump(invests, gf)
 
         return invests
 
@@ -472,7 +422,7 @@ class Rec():
             train_start_date, train_end_date, test_start_date, test_end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                train_set = pickle.load(gf)
+                train_set = joblib.load(gf)
         else:
             browse_feat = self.user_browse_feature(train_start_date, train_end_date)
             invest_feat = self.user_invest_feature(train_start_date, train_end_date)
@@ -497,7 +447,7 @@ class Rec():
             gc.collect()
             train_set['label'].fillna(0, inplace=True)
             with open(dump_path, 'wb') as gf:
-                pickle.dump(train_set, gf)
+                joblib.dump(train_set, gf)
 
         labels = train_set['label'].copy()
         del train_set['user_id']
@@ -515,14 +465,14 @@ class Rec():
         if os.path.exists(dump_path):
             return
             with open(dump_path, 'rb') as gf:
-                train_set = pickle.load(gf)
+                train_set = joblib.load(gf)
         else:
             browse_feat = self.user_browse_feature(train_start_date, train_end_date)
             invest_feat = self.user_invest_feature(train_start_date, train_end_date)
             print(browse_feat.columns)
             print(invest_feat.columns)
             train_set = pd.merge(browse_feat, invest_feat, how='outer', on=['user_id', 'product_group'])
-            # pickle.dump(train_set, open(os.path.join(self.cache_dir,'browse_invest_{0}_{1}.pkl'.format(train_start_date,train_end_date)),'wb'))
+            # joblib.dump(train_set, open(os.path.join(self.cache_dir,'browse_invest_{0}_{1}.pkl'.format(train_start_date,train_end_date)),'wb'))
             del (browse_feat)
             del (invest_feat)
             gc.collect()
@@ -537,7 +487,7 @@ class Rec():
             gc.collect()
             labels = self.gen_labels(test_start_date, test_end_date)
             train_set = pd.merge(train_set, labels, how='outer', on=['user_id', 'product_group'])
-            # pickle.dump(train_set, open(
+            # joblib.dump(train_set, open(
             #     os.path.join(self.cache_dir, 'trainset_labels_{0}_{1}.pkl'.format(train_start_date, train_end_date)),
             #     'wb'))
             del (labels)
@@ -545,7 +495,7 @@ class Rec():
             train_set['label'].fillna(0, inplace=True)
             train_set = train_set[train_set['product_group'].str.contains("100w")]
             with open(dump_path, 'wb') as gf:
-                pickle.dump(train_set, gf)
+                joblib.dump(train_set, gf)
             del (train_set)
             gc.collect()
 
@@ -564,7 +514,7 @@ class Rec():
         dump_path = os.path.join(self.cache_dir, 'test_set_%s_%s.pkl' % (test_start_date, test_end_date))
         if os.path.exists(dump_path):
             with open(dump_path, 'rb') as gf:
-                test_set = pickle.load(gf)
+                test_set = joblib.load(gf)
         else:
             test_set = self.gen_sample(test_start_date, test_end_date)
             # test_set = self.gen_million_sample(test_start_date, test_end_date)
@@ -584,7 +534,7 @@ class Rec():
             gc.collect()
             test_set.fillna(0, inplace=True)
             with open(dump_path, 'wb') as gf:
-                pickle.dump(test_set, gf)
+                joblib.dump(test_set, gf)
 
         labels = test_set['label'].copy()
         del test_set['user_id']
@@ -614,9 +564,9 @@ class Rec():
         feat_encoder_path = os.path.join(self.cache_dir, 'feat_encoder.pkl')
         if os.path.exists(feat_sel_path) and os.path.exists(feat_encoder_path):
             with open(feat_sel_path, 'rb') as gf:
-                sl = pickle.load(gf)
+                sl = joblib.load(gf)
             with open(feat_encoder_path, 'rb') as gf:
-                bfp = pickle.load(gf)
+                bfp = joblib.load(gf)
 
         X_test, y_test = self.make_test_set(test_start_date, test_end_date, test_act_start_date, test_act_end_date)
         X = sl.transform(X_test)
@@ -643,9 +593,9 @@ class Rec():
 
         if os.path.exists(feat_sel_path) and os.path.exists(feat_encoder_path):
             with open(feat_sel_path, 'rb') as gf:
-                sl = pickle.load(gf)
+                sl = joblib.load(gf)
             with open(feat_encoder_path, 'rb') as gf:
-                bfp = pickle.load(gf)
+                bfp = joblib.load(gf)
         else:
             sl = FeatureSelection(self.args)
             sl.fit(X_train, y_train)
@@ -659,9 +609,9 @@ class Rec():
             pass
         else:
             with open(feat_sel_path, 'wb') as gf:
-                pickle.dump(sl, gf)
+                joblib.dump(sl, gf)
             with open(feat_encoder_path, 'wb') as gf:
-                pickle.dump(bfp, gf)
+                joblib.dump(bfp, gf)
 
     def make_sliding_train_matrix(self, start_date, end_date, window=30, step=5):
         whole = datetime.strptime(end_date, '%Y-%m-%d') - datetime.strptime(start_date, '%Y-%m-%d')
@@ -713,7 +663,7 @@ class Rec():
                 print('make train set', train_start_date, train_end_date, act_start_date, act_end_date)
                 dump_path = os.path.join(self.cache_dir, 'million_train_set_%s_%s_%s_%s.pkl' % (
                     train_start_date, train_end_date, act_start_date, act_end_date))
-                train_set = pickle.load(open(dump_path, 'rb'))
+                train_set = joblib.load(open(dump_path, 'rb'))
                 if res is not None:
                     tmp = pd.concat([res, train_set], axis=0)
                     del (res)
@@ -726,7 +676,7 @@ class Rec():
         if res is not None:
             with open(os.path.join(self.cache_dir, "merge_million_train_set_%s_%s_window%s_step%s.pkl" % (
             start_date, end_date, window, step)), 'wb') as gf:
-                pickle.dump(res, gf)
+                joblib.dump(res, gf)
 
         cols = [col for col in res.columns.values if col not in ['user_id', 'product_group', 'label']]
         sl = FeatureSelection()
@@ -847,9 +797,9 @@ class Rec():
         feat_encoder_path = os.path.join(self.cache_dir, 'feat_encoder.pkl')
         if os.path.exists(feat_sel_path) and os.path.exists(feat_encoder_path):
             with open(feat_sel_path, 'rb') as gf:
-                sl = pickle.load(gf)
+                sl = joblib.load(gf)
             with open(feat_encoder_path, 'rb') as gf:
-                bfp = pickle.load(gf)
+                bfp = joblib.load(gf)
         else:
             sl = FeatureSelection(self.args)
             bfp = FeatureEncoder(self.args)
@@ -879,9 +829,9 @@ class Rec():
                 gc.collect()
 
             with open(feat_sel_path, 'wb') as gf:
-                pickle.dump(sl, gf)
+                joblib.dump(sl, gf)
             with open(feat_encoder_path, 'wb') as gf:
-                pickle.dump(bfp, gf)
+                joblib.dump(bfp, gf)
 
             X_test, y_test = self.make_test_set(test_start_date, test_end_date, test_act_start_date, test_act_end_date)
             X = sl.transform(X_test)

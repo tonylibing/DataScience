@@ -177,7 +177,7 @@ class FeatureSelection(TransformerMixin):
         # else:
         self.column_summary = ColumnSummary(X,dump_path=summary_path)
         self.column_type = self.column_summary.set_index('col_name')['ColumnType'].to_dict()
-        drop_cols = self.column_summary[self.column_summary['missing_pct'] > 0.99]['col_name']
+        drop_cols = self.column_summary[self.column_summary['missing_pct'] > 0.6]['col_name']
 
         if len(drop_cols) > 0:
             print("drop missing too much columns:{0}".format(drop_cols))
@@ -236,6 +236,9 @@ class FeatureSelection(TransformerMixin):
 
     def fit_transform(self, X, y):
         return self.fit(X, y).transform(X)
+
+    def getColumnSummary(self):
+        return self.column_summary
 
 
 class FeatureEncoder(BaseEstimator):
@@ -408,14 +411,25 @@ class FeatureEncoder(BaseEstimator):
                 del(df_tmp)
                 gc.collect()
         elif data_type=='csv' and self.one_hot is False:
-            res = pd.concat([df_tmp, y], axis=1)
+            with open(dump_path, 'w') as gf:
+                res = pd.concat([df_tmp,y],axis=1)
+                res.to_csv(gf,header=True,index=False)
+                del(df_tmp)
+                gc.collect()
+                return res
+        elif data_type=='csv' and self.one_hot:
+            dfs=[]
+            for col_idx, col_name in tqdm(enumerate(df_tmp.columns.values),desc='transforming(one-hot) cols'):
+                fp = self.feature_processors[col_idx]
+                if 'categorical' == fp.col_type:
+                    item_one_hot = pd.get_dummies(df_tmp[col_name], prefix = fp.col_name)
+                    dfs.append(item_one_hot)
+                elif 'numerical' == fp.col_type:
+                    dfs.append(df_tmp[col_name])
+            dfs.append(y)
+            res = pd.concat(dfs, axis=1)
+            res.to_csv(dump_path,header=True,index=False)
             return res
-            # with open(dump_path, 'w') as gf:
-            #     res = pd.concat([df_tmp,y],axis=1)
-            #     res.to_csv(gf,header=True,index=False)
-            #     del(df_tmp)
-            #     gc.collect()
-            #     return res
         elif data_type=='csr':
             data = []
             row_idx = []
