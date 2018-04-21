@@ -142,6 +142,7 @@ class FeatureSelection(TransformerMixin):
         # self.scaler = StandardScaler()
         self.numerical_cols = []
         self.categorical_cols = []
+        self.id_cols = []
         self.selected_cols = []
         self.args = None
         self.data_dir = None
@@ -186,8 +187,10 @@ class FeatureSelection(TransformerMixin):
         for col, col_type in self.column_type.items():
             if col_type == 'numerical':
                 self.numerical_cols.append(col)
-            elif col_type == 'categorical':
+            elif (col_type == 'categorical' or col_type=='id') :
                 self.categorical_cols.append(col)
+            # elif col_type=='id':
+            #     self.id_cols.append(col)
 
         # feature selection
         print("numerical features:")
@@ -257,7 +260,8 @@ class FeatureEncoder(BaseEstimator):
         self.feature_processors = []
         self.variance_selector = VarianceThreshold(threshold=.99 * (1 - .99))
         self.scaler = StandardScaler()
-        self.feature_names = {}
+        self.feature_offset = {}
+        self.feature_names = []
         self.numerical_cols = numerical_cols
         self.categorical_cols = categorical_cols
         self.one_hot = one_hot
@@ -312,11 +316,11 @@ class FeatureEncoder(BaseEstimator):
         print("=" * 60)
 
         self.feature_offset = {}
-        self.feature_name = []
+        self.feature_names = []
         self.length = 0
         for fp in tqdm(self.feature_processors,desc="fit feature processor"):
             fp.fit(df)
-            self.feature_name.append(fp.col_name)
+            self.feature_names.append(fp.col_name)
             self.feature_offset[fp.col_name] = self.length
             self.length += fp.dimension
 
@@ -330,7 +334,6 @@ class FeatureEncoder(BaseEstimator):
 
         return self
 
-    # to libsvm
     def transform(self, df,y,dump_name,data_type='csv'):
         print("transform to {} type".format(data_type))
         print(len(df.columns.values))
@@ -340,7 +343,7 @@ class FeatureEncoder(BaseEstimator):
         print("persist to file:{}".format(dump_name))
         # df_numerical = pd.DataFrame(self.scaler.fit_transform(df[self.numerical_cols]),index=df.index, columns=self.numerical_cols)
         # df_new = pd.concat([df[self.categorical_cols],df_numerical],axis=1)
-        df_tmp = df.loc[:,self.feature_name]
+        df_tmp = df.loc[:, self.feature_names]
         if(df_tmp.isnull().values.any()):
             null_cols = df_tmp.columns[df_tmp.isnull().any()].tolist()
             print("df_tmp has nulls:",null_cols)
@@ -412,7 +415,10 @@ class FeatureEncoder(BaseEstimator):
                 gc.collect()
         elif data_type=='csv' and self.one_hot is False:
             with open(dump_path, 'w') as gf:
-                res = pd.concat([df_tmp,y],axis=1)
+                if y is not None:
+                    res = pd.concat([df_tmp,y],axis=1)
+                else:
+                    res=df_tmp
                 res.to_csv(gf,header=True,index=False)
                 del(df_tmp)
                 gc.collect()
@@ -422,11 +428,12 @@ class FeatureEncoder(BaseEstimator):
             for col_idx, col_name in tqdm(enumerate(df_tmp.columns.values),desc='transforming(one-hot) cols'):
                 fp = self.feature_processors[col_idx]
                 if 'categorical' == fp.col_type:
-                    item_one_hot = pd.get_dummies(df_tmp[col_name], prefix = fp.col_name)
+                    item_one_hot = pd.get_dummies(df_tmp[col_name], prefix = fp.col_name,dummy_na=True)
                     dfs.append(item_one_hot)
                 elif 'numerical' == fp.col_type:
                     dfs.append(df_tmp[col_name])
-            dfs.append(y)
+            if y is not None:
+                dfs.append(y)
             res = pd.concat(dfs, axis=1)
             res.to_csv(dump_path,header=True,index=False)
             return res
@@ -451,7 +458,6 @@ class FeatureEncoder(BaseEstimator):
                                 data.append(vv)
                                 row_idx.append(i)
                                 col_idx.append(self.feature_offset[fp.col_name])
-                                self.feature_names[fp.col_name] = self.feature_offset[fp.col_name]
                             else:
                                 print('row:{0},col:{1} is null'.format(i,k))
 
@@ -477,7 +483,7 @@ class FeatureEncoder(BaseEstimator):
         ps = ['col:{0},type:{1},params:{2}'.format(fp.col_name, fp.col_type, fp.params) for fp in
               self.feature_processors]
         processors = "\n".join(ps)
-        sorted_x = sorted(self.feature_names.items(), key=operator.itemgetter(1))
+        sorted_x = sorted(self.feature_offset.items(), key=operator.itemgetter(1))
         info = processors + "\n" + json.dumps(sorted_x)
         return info
 

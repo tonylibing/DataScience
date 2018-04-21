@@ -101,7 +101,7 @@ for i in range (1,4):
     scipy.sparse.save_npz("/home/tanglek/dataset/rec_data_train_feature_matrix.npz", feature_matrix)
     print(str(bfp))
 
-    idx2featurename = dict((y,x) for x,y in bfp.feature_names.items())
+    idx2featurename = dict((y,x) for x,y in bfp.feature_offset.items())
 
     print("feature_matrix shape:{0}".format(feature_matrix.shape))
 
