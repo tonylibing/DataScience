@@ -140,3 +140,7 @@ def plot_prec_recall_f1_vs_tresh(y_test,y_score):
     plt.savefig('plot_prec_recall_vs_tresh.png')
     plt.show()
     plt.close()
+
+def group_metrics(X_test,y_test,y_score):
+    pass
+    # for name, group in y_score.groupby('Coupon_id'):
