@@ -1130,7 +1130,7 @@ def smallTrainFFM(args):
     ffm_model = xl.create_ffm()
     ffm_model.setTrain(os.path.join(cwd, 'train_ffm.csv'))
     ffm_model.setSigmoid()
-    param = {'task': 'binary', 'lr': 0.1, 'lambda': 0.001, 'metric': 'auc', 'opt': 'adagrad', 'epoch':10, 'k': 5,'stop_window':3,
+    param = {'task': 'binary', 'lr': 0.1, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch':100, 'k': 5,'stop_window':3,
              'alpha':0.002, 'beta':0.8, 'lambda_1':0.001, 'lambda_2': 1.0,'fold': 5}
     # ffm_model.fit(param, os.path.join(cwd,"model.out"))
     ffm_model.cv(param)
