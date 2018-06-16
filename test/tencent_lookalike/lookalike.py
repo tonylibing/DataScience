@@ -1092,24 +1092,129 @@ def smallData2ffm(args):
     # sub['score'] = np.loadtxt(os.path.join(data_dir,"output.txt"))
     # sub.to_csv('submission.csv', index=False)
     # os.system('zip baseline_ffm.zip submission.csv')
-
-def data2ffm2(args):
+def data2ffm(args):
     data_dir = args.data_dir
+    cache_dir = os.path.join(data_dir,'cache')
+    with tf.gfile.FastGFile(os.path.join(cache_dir, 'lookalike_data_all.csv'), 'r') as gf:
+        data = pd.read_csv(gf)
+
+    one_hot_feature = ['LBS', 'age', 'carrier', 'consumptionAbility', 'education', 'gender', 'house', 'os', 'ct',
+                       'marriageStatus', 'advertiserId', 'campaignId', 'creativeId',
+                       'adCategoryId', 'productId', 'productType']
+    vector_feature = ['appIdAction', 'appIdInstall', 'interest1', 'interest2', 'interest3', 'interest4', 'interest5',
+                      'kw1', 'kw2', 'kw3', 'topic1', 'topic2', 'topic3']
+    continus_feature = ['creativeSize']
+    data = data.fillna(-1)
+
+    for feature in one_hot_feature:
+        try:
+            data[feature] = LabelEncoder().fit_transform(data[feature].apply(int))
+        except:
+            data[feature] = LabelEncoder().fit_transform(data[feature])
+
+    data = data[one_hot_feature + vector_feature + continus_feature]
+
+    class FFMFormat:
+        def __init__(self, vector_feat, one_hot_feat, continus_feat):
+            self.field_index_ = None
+            self.feature_index_ = None
+            self.vector_feat = vector_feat
+            self.one_hot_feat = one_hot_feat
+            self.continus_feat = continus_feat
+
+        def get_params(self):
+            pass
+
+        def set_params(self, **parameters):
+            pass
+
+        def fit(self, df, y=None):
+            self.field_index_ = {col: i for i, col in enumerate(df.columns)}
+            self.feature_index_ = dict()
+            last_idx = 0
+            for col in df.columns:
+                if col in self.one_hot_feat:
+                    print(col)
+                    df[col] = df[col].astype('int')
+                    vals = np.unique(df[col])
+                    for val in vals:
+                        if val == -1: continue
+                        name = '{}_{}'.format(col, val)
+                        if name not in self.feature_index_:
+                            self.feature_index_[name] = last_idx
+                            last_idx += 1
+                elif col in self.vector_feat:
+                    print(col)
+                    vals = []
+                    for data in df[col].apply(str):
+                        if data != "-1":
+                            for word in data.strip().split(' '):
+                                vals.append(word)
+                    vals = np.unique(vals)
+                    for val in vals:
+                        if val == "-1": continue
+                        name = '{}_{}'.format(col, val)
+                        if name not in self.feature_index_:
+                            self.feature_index_[name] = last_idx
+                            last_idx += 1
+                self.feature_index_[col] = last_idx
+                last_idx += 1
+            return self
+
+        def fit_transform(self, df, y=None):
+            self.fit(df, y)
+            return self.transform(df)
+
+        def transform_row_(self, row):
+            ffm = []
+
+            for col, val in row.loc[row != 0].to_dict().items():
+                if col in self.one_hot_feat:
+                    name = '{}_{}'.format(col, val)
+                    if name in self.feature_index_:
+                        ffm.append('{}:{}:1'.format(self.field_index_[col], self.feature_index_[name]))
+                    # ffm.append('{}:{}:{}'.format(self.field_index_[col], self.feature_index_[col], 1))
+                elif col in self.vector_feat:
+                    for word in str(val).split(' '):
+                        name = '{}_{}'.format(col, word)
+                        if name in self.feature_index_:
+                            ffm.append('{}:{}:1'.format(self.field_index_[col], self.feature_index_[name]))
+                elif col in self.continus_feat:
+                    if val != -1:
+                        ffm.append('{}:{}:{}'.format(self.field_index_[col], self.feature_index_[col], val))
+            return ' '.join(ffm)
+
+        def transform(self, df):
+            # val=[]
+            # for k,v in self.feature_index_.items():
+            #     val.append(v)
+            # val.sort()
+            # print(val)
+            # print(self.field_index_)
+            # print(self.feature_index_)
+            return pd.Series({idx: self.transform_row_(row) for idx, row in df.iterrows()})
+
+    tr = FFMFormat(vector_feature, one_hot_feature, continus_feature)
+    user_ffm = tr.fit_transform(data)
+    with tf.gfile.FastGFile(os.path.join(data_dir, 'all_ffm.csv'), 'w') as gf:
+        user_ffm.to_csv(gf, index=False)
 
     with tf.gfile.FastGFile(os.path.join(data_dir, 'train.csv'), 'r') as gf:
         train = pd.read_csv(gf)
-
     Y = np.array(train.pop('label'))
     len_train = len(train)
+    print("len_train:{0}".format(len_train))
+    # len_train: 87989
 
-    with tf.gfile.FastGFile(os.path.join(data_dir, 'ffm.csv'),'r') as fin:
-        with tf.gfile.FastGFile(os.path.join(data_dir, 'train_ffm.csv'), 'w') as f_train_out:
-            with tf.gfile.FastGFile(os.path.join(data_dir, 'test_ffm.csv'), 'w') as f_test_out:
+    with tf.gfile.FastGFile(os.path.join(data_dir, 'all_ffm.csv'),'r') as fin:
+        with tf.gfile.FastGFile(os.path.join(data_dir, 'all_train_ffm.csv'), 'w') as f_train_out:
+            with tf.gfile.FastGFile(os.path.join(data_dir, 'all_test_ffm.csv'), 'w') as f_test_out:
                 for (i, line) in enumerate(fin):
                     if i < len_train:
                         f_train_out.write(str(Y[i]) + ' ' + line)
                     else:
                         f_test_out.write(line)
+
 
 def cloud2local(cloud_dir,local_dir,fname):
     with tf.gfile.FastGFile(os.path.join(cloud_dir, fname), 'rb') as f:
@@ -1635,8 +1740,10 @@ def main(_):
         dump_split_svm(args)
     elif args.task == 'tocsv':
         data2csv(args)
-    elif args.task == 'toffm':
+    elif args.task == 'sm2ffm':
         smallData2ffm(args)
+    elif args.task == 'toffm':
+        data2ffm(args)
     elif args.task == 'trainffm':
         smallTrainFFM(args)
 
