@@ -776,7 +776,7 @@ def split_data(args):
 
 
 def data2csv(args):
-    print("split data")
+    print("convert all data to csv")
     data_dir = args.data_dir
     with tf.gfile.FastGFile(os.path.join(data_dir, 'adFeature.csv')) as gf:
         ad_feature = pd.read_csv(gf)
@@ -949,10 +949,10 @@ def small_test_cross_feature(args):
     LGB_only_predict(args, train_x, train_y, test_x, res, evals_x, evals_y, args.lgbgpu)
 
 
-def data2ffm(args):
+def smallData2ffm(args):
     data_dir = args.data_dir
     cache_dir = os.path.join(data_dir,'cache')
-    with tf.gfile.FastGFile(os.path.join(cache_dir, 'lookalike_data_all.csv'), 'r') as gf:
+    with tf.gfile.FastGFile(os.path.join(cache_dir, 'lookalike_100_split_0.csv'), 'r') as gf:
         data = pd.read_csv(gf)
 
     one_hot_feature = ['LBS', 'age', 'carrier', 'consumptionAbility', 'education', 'gender', 'house', 'os', 'ct',
@@ -1058,11 +1058,13 @@ def data2ffm(args):
 
     with tf.gfile.FastGFile(os.path.join(data_dir, 'train.csv'), 'r') as gf:
         train = pd.read_csv(gf)
-    with tf.gfile.FastGFile(os.path.join(data_dir, 'test1.csv'), 'r') as gf:
-        test = pd.read_csv(gf)
+
+    cnt = 100
+    size = math.ceil(len(train) / cnt)
 
     Y = np.array(train.pop('label'))
-    len_train = len(train)
+    len_train = size
+    print("len_train:{0}".format(len_train))
 
     with tf.gfile.FastGFile(os.path.join(data_dir, 'ffm.csv'),'r') as fin:
         with tf.gfile.FastGFile(os.path.join(data_dir, 'train_ffm.csv'), 'w') as f_train_out:
@@ -1623,7 +1625,7 @@ def main(_):
     elif args.task == 'tocsv':
         data2csv(args)
     elif args.task == 'toffm':
-        data2ffm2(args)
+        smallData2ffm(args)
     elif args.task == 'trainffm':
         localtrainffm(args)
 
