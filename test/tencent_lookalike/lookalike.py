@@ -1215,6 +1215,22 @@ def data2ffm(args):
                     else:
                         f_test_out.write(line)
 
+def data2ffm2(args):
+    data_dir = args.data_dir
+    cache_dir = os.path.join(data_dir,'cache')
+    with tf.gfile.FastGFile(os.path.join(data_dir, 'train.csv'), 'r') as gf:
+        train = pd.read_csv(gf)
+    Y = np.array(train.pop('label'))
+    len_train = len(train)
+    print("len_train:{0}".format(len_train))
+    with tf.gfile.FastGFile(os.path.join(data_dir, 'all_ffm.csv'),'r') as fin:
+        with tf.gfile.FastGFile(os.path.join(data_dir, 'all_train_ffm.csv'), 'w') as f_train_out:
+            with tf.gfile.FastGFile(os.path.join(data_dir, 'all_test_ffm.csv'), 'w') as f_test_out:
+                for (i, line) in enumerate(fin):
+                    if i < len_train:
+                        f_train_out.write(str(Y[i]) + ' ' + line)
+                    else:
+                        f_test_out.write(line)
 
 def cloud2local(cloud_dir,local_dir,fname):
     with tf.gfile.FastGFile(os.path.join(cloud_dir, fname), 'rb') as f:
@@ -1753,7 +1769,7 @@ def main(_):
     elif args.task == 'sm2ffm':
         smallData2ffm(args)
     elif args.task == 'toffm':
-        data2ffm(args)
+        data2ffm2(args)
     elif args.task == 'smtrainffm':
         smallTrainFFM(args)
     elif args.task == 'trainffm':
