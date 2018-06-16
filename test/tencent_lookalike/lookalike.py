@@ -960,7 +960,7 @@ def smallData2ffm(args):
                        'adCategoryId', 'productId', 'productType']
     vector_feature = ['appIdAction', 'appIdInstall', 'interest1', 'interest2', 'interest3', 'interest4', 'interest5',
                       'kw1', 'kw2', 'kw3', 'topic1', 'topic2', 'topic3']
-    continus_feature = ['creativeSize']
+    continuous_feature = ['creativeSize']
     data = data.fillna(-1)
 
     for feature in one_hot_feature:
@@ -969,7 +969,7 @@ def smallData2ffm(args):
         except:
             data[feature] = LabelEncoder().fit_transform(data[feature])
 
-    data = data[one_hot_feature + vector_feature + continus_feature]
+    data = data[one_hot_feature + vector_feature + continuous_feature]
 
     class FFMFormat:
         def __init__(self, vector_feat, one_hot_feat, continus_feat):
@@ -1051,7 +1051,7 @@ def smallData2ffm(args):
             # print(self.feature_index_)
             return pd.Series({idx: self.transform_row_(row) for idx, row in df.iterrows()})
 
-    tr = FFMFormat(vector_feature, one_hot_feature, continus_feature)
+    tr = FFMFormat(vector_feature, one_hot_feature, continuous_feature)
     user_ffm = tr.fit_transform(data)
     with tf.gfile.FastGFile(os.path.join(data_dir, 'ffm.csv'), 'w') as gf:
         user_ffm.to_csv(gf, index=False)
@@ -1235,7 +1235,7 @@ def smallTrainFFM(args):
     ffm_model = xl.create_ffm()
     ffm_model.setTrain(os.path.join(cwd, 'train_ffm.csv'))
     ffm_model.setSigmoid()
-    param = {'task': 'binary', 'lr': 0.1, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch':1000, 'k': 5,'stop_window':3,
+    param = {'task': 'binary', 'lr': 0.02, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch':1000, 'k': 5,'stop_window':3,
              'alpha':0.002, 'beta':0.8, 'lambda_1':0.001, 'lambda_2': 1.0,'fold': 5}
     # ffm_model.fit(param, os.path.join(cwd,"model.out"))
     ffm_model.cv(param)
