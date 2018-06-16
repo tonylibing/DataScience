@@ -1065,6 +1065,7 @@ def smallData2ffm(args):
     Y = np.array(train.pop('label'))
     len_train = size
     print("len_train:{0}".format(len_train))
+    # len_train: 87989
 
     with tf.gfile.FastGFile(os.path.join(data_dir, 'ffm.csv'),'r') as fin:
         with tf.gfile.FastGFile(os.path.join(data_dir, 'train_ffm.csv'), 'w') as f_train_out:
@@ -1123,6 +1124,16 @@ def local2cloud(cloud_dir,local_dir,fname):
             contents = f.read()
             outf.write(contents)
             # outf.write(io.BytesIO(contents))
+
+def smallTrainFFM(args):
+    cwd = args.data_dir
+    ffm_model = xl.create_ffm()
+    ffm_model.setTrain(os.path.join(cwd, 'train_ffm.csv'))
+    ffm_model.setSigmoid()
+    param = {'task': 'binary', 'lr': 0.01, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch':5, 'k': 4,'stop_window':3,
+             'alpha': 1.5, 'beta': 0.01, 'lambda_1': 0.0, 'lambda_2': 0.0,'fold': 5}
+    # ffm_model.fit(param, os.path.join(cwd,"model.out"))
+    ffm_model.cv(param)
 
 def localtrainffm(args):
     cwd = os.getcwd()
@@ -1627,7 +1638,7 @@ def main(_):
     elif args.task == 'toffm':
         smallData2ffm(args)
     elif args.task == 'trainffm':
-        localtrainffm(args)
+        smallTrainFFM(args)
 
 if __name__ == '__main__':
     tf.app.run(main=main)
