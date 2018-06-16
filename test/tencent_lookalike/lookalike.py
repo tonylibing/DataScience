@@ -1240,6 +1240,16 @@ def smallTrainFFM(args):
     # ffm_model.fit(param, os.path.join(cwd,"model.out"))
     ffm_model.cv(param)
 
+def trainFFM(args):
+    cwd = args.data_dir
+    ffm_model = xl.create_ffm()
+    ffm_model.setTrain(os.path.join(cwd, 'all_train_ffm.csv'))
+    ffm_model.setSigmoid()
+    param = {'task': 'binary', 'lr': 0.1, 'lambda': 0.001, 'metric': 'auc', 'opt': 'adagrad', 'epoch':2000, 'k': 5,'stop_window':3,
+             'alpha':0.002, 'beta':0.8, 'lambda_1':0.001, 'lambda_2': 1.0,'fold': 5}
+    # ffm_model.fit(param, os.path.join(cwd,"model.out"))
+    ffm_model.cv(param)
+
 def localtrainffm(args):
     cwd = os.getcwd()
     # / data4 / data / nm - local - dir / usercache / mt_tenant_4390104 / appcache / application_1520240304221_3990 / container_e14_1520240304221_3990_01_000002
