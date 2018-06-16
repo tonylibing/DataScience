@@ -1754,8 +1754,10 @@ def main(_):
         smallData2ffm(args)
     elif args.task == 'toffm':
         data2ffm(args)
-    elif args.task == 'trainffm':
+    elif args.task == 'smtrainffm':
         smallTrainFFM(args)
+    elif args.task == 'trainffm':
+        trainFFM(args)
 
 if __name__ == '__main__':
     tf.app.run(main=main)
