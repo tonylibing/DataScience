@@ -1259,7 +1259,7 @@ def smallTrainFFM(args):
 def trainFFM(args):
     cwd = args.data_dir
     ffm_model = xl.create_ffm()
-    ffm_model.setTrain(os.path.join(cwd, 'all_train_ffm.csv'))
+    ffm_model.setTrain(args.ffm_file)
     ffm_model.setSigmoid()
     param = {'task': 'binary', 'lr': 0.02, 'lambda': 0.001, 'metric': 'auc', 'opt': 'adagrad', 'epoch':1000, 'k': 5,'stop_window':3,
              'alpha':0.002, 'beta':0.8, 'lambda_1':0.001, 'lambda_2': 1.0,'fold': 5}
@@ -1729,6 +1729,8 @@ def main(_):
                            help='output model path')
     mtyunArgs.add_argument('--model_type', type=str, default='lgb',
                            help='model type str')
+    mtyunArgs.add_argument('--ffm_file', type=str, default='',
+                           help='input ffm file')
     mtyunArgs.add_argument('--tf_fs', type=str, default='', help='output model path')
     mtyunArgs.add_argument('--tf_prefix', type=str, default='', help='output model path')
     mtyunArgs.add_argument('--default_fs', type=str, default='', help='output model path')
