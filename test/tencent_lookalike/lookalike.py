@@ -775,6 +775,23 @@ def split_data(args):
         gc.collect()
 
 
+def sampling_data(args):
+    print("split data")
+    data_dir = args.data_dir
+    with tf.gfile.FastGFile(os.path.join(os.path.join(data_dir, 'cache'), "lookalike_data_all.csv"), 'r') as gf:
+        data=pd.read_csv(gf)
+
+    train = data[data['label'] != -1]
+    train_y = train.pop('label')
+
+    train, test, train_y, test_y = train_test_split(train, train_y, test_size=0.1, random_state=20180617, stratify=train_y)
+
+    result = pd.concat([test, test_y],axis=1)
+
+    with tf.gfile.FastGFile(os.path.join(os.path.join(data_dir, 'cache'), "lookalike_sampling.csv"), 'w') as gf:
+        result.to_csv(gf, index=False)
+
+
 def data2csv(args):
     print("convert all data to csv")
     data_dir = args.data_dir
@@ -1748,8 +1765,8 @@ def main(_):
     print('FLAGS')
     print(FLAGS)
     args = parser.parse_args(args_in)
-    if args.task == 'split':
-        split_data(args)
+    if args.task == 'sampling':
+        sampling_data(args)
     elif args.task == 'mean_encoding':
         run_target_encoding(args)
     elif args.task == 'bayescv':
