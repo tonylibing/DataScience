@@ -966,10 +966,10 @@ def small_test_cross_feature(args):
     LGB_only_predict(args, train_x, train_y, test_x, res, evals_x, evals_y, args.lgbgpu)
 
 
-def smallData2ffm(args):
+def samplingData2ffm(args):
     data_dir = args.data_dir
     cache_dir = os.path.join(data_dir,'cache')
-    with tf.gfile.FastGFile(os.path.join(cache_dir, 'lookalike_100_split_0.csv'), 'r') as gf:
+    with tf.gfile.FastGFile(os.path.join(cache_dir, 'lookalike_sampling.csv'), 'r') as gf:
         data = pd.read_csv(gf)
 
     one_hot_feature = ['LBS', 'age', 'carrier', 'consumptionAbility', 'education', 'gender', 'house', 'os', 'ct',
@@ -979,6 +979,7 @@ def smallData2ffm(args):
                       'kw1', 'kw2', 'kw3', 'topic1', 'topic2', 'topic3']
     continuous_feature = ['creativeSize']
     data = data.fillna(-1)
+    Y = np.array(data['label'])
 
     for feature in one_hot_feature:
         try:
@@ -1070,45 +1071,14 @@ def smallData2ffm(args):
 
     tr = FFMFormat(vector_feature, one_hot_feature, continuous_feature)
     user_ffm = tr.fit_transform(data)
-    with tf.gfile.FastGFile(os.path.join(data_dir, 'ffm.csv'), 'w') as gf:
+    with tf.gfile.FastGFile(os.path.join(data_dir, 'sampling_ffm.csv'), 'w') as gf:
         user_ffm.to_csv(gf, index=False)
 
-    with tf.gfile.FastGFile(os.path.join(data_dir, 'train.csv'), 'r') as gf:
-        train = pd.read_csv(gf)
+    with tf.gfile.FastGFile(os.path.join(data_dir, 'sampling_ffm.csv'),'r') as fin:
+        with tf.gfile.FastGFile(os.path.join(data_dir, 'sampling_train_ffm.csv'), 'w') as f_train_out:
+            for (i, line) in enumerate(fin):
+                f_train_out.write(str(Y[i]) + ' ' + line)
 
-    cnt = 100
-    size = math.ceil(len(train) / cnt)
-
-    Y = np.array(train.pop('label'))
-    len_train = size
-    print("len_train:{0}".format(len_train))
-    # len_train: 87989
-
-    with tf.gfile.FastGFile(os.path.join(data_dir, 'ffm.csv'),'r') as fin:
-        with tf.gfile.FastGFile(os.path.join(data_dir, 'train_ffm.csv'), 'w') as f_train_out:
-            with tf.gfile.FastGFile(os.path.join(data_dir, 'test_ffm.csv'), 'w') as f_test_out:
-                for (i, line) in enumerate(fin):
-                    if i < len_train:
-                        f_train_out.write(str(Y[i]) + ' ' + line)
-                    else:
-                        f_test_out.write(line)
-
-    # path = 'data/'
-    #leave for local
-    # ffm_model = xl.create_ffm()
-    # ffm_model.setTrain(os.path.join(data_dir, 'train_ffm.csv'))
-    # ffm_model.setTest(os.path.join(data_dir, 'test_ffm.csv'))
-    # ffm_model.setSigmoid()
-    # param = {'task': 'binary', 'lr': 0.01, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch': 5, 'k': 4,
-    #          'alpha': 1.5, 'beta': 0.01, 'lambda_1': 0.0, 'lambda_2': 0.0}
-    # ffm_model.fit(param, os.path.join(data_dir,"model.out"))
-    # ffm_model.predict(os.path.join(data_dir,"model.out"), os.path.join(data_dir,"output.txt"))
-    # sub = pd.DataFrame()
-    # sub['aid'] = test['aid']
-    # sub['uid'] = test['uid']
-    # sub['score'] = np.loadtxt(os.path.join(data_dir,"output.txt"))
-    # sub.to_csv('submission.csv', index=False)
-    # os.system('zip baseline_ffm.zip submission.csv')
 def data2ffm(args):
     data_dir = args.data_dir
     cache_dir = os.path.join(data_dir,'cache')
@@ -1767,6 +1737,7 @@ def main(_):
     args = parser.parse_args(args_in)
     if args.task == 'sampling':
         sampling_data(args)
+        samplingData2ffm(args)
     elif args.task == 'mean_encoding':
         run_target_encoding(args)
     elif args.task == 'bayescv':
@@ -1788,7 +1759,7 @@ def main(_):
     elif args.task == 'tocsv':
         data2csv(args)
     elif args.task == 'sm2ffm':
-        smallData2ffm(args)
+        samplingData2ffm(args)
     elif args.task == 'toffm':
         data2ffm2(args)
     elif args.task == 'smtrainffm':
