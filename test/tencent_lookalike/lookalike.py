@@ -776,7 +776,7 @@ def split_data(args):
 
 
 def sampling_data(args):
-    print("split data")
+    print("sampling data")
     data_dir = args.data_dir
     with tf.gfile.FastGFile(os.path.join(os.path.join(data_dir, 'cache'), "lookalike_data_all.csv"), 'r') as gf:
         data=pd.read_csv(gf)
@@ -1060,13 +1060,6 @@ def samplingData2ffm(args):
             return ' '.join(ffm)
 
         def transform(self, df):
-            # val=[]
-            # for k,v in self.feature_index_.items():
-            #     val.append(v)
-            # val.sort()
-            # print(val)
-            # print(self.field_index_)
-            # print(self.feature_index_)
             return pd.Series({idx: self.transform_row_(row) for idx, row in df.iterrows()})
 
     tr = FFMFormat(vector_feature, one_hot_feature, continuous_feature)
@@ -1250,7 +1243,7 @@ def trainFFM(args):
     ffm_model.setSigmoid()
     # param = {'task': 'binary', 'lr': 0.02, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch':1000, 'k': 5,'stop_window':3,
     #          'alpha':0.002, 'beta':0.8, 'lambda_1':0.001, 'lambda_2': 1.0,'fold': 5}
-    param = {'task': 'binary', 'lr': 0.01, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch': 5, 'k': 4,
+    param = {'task': 'binary', 'lr': 0.01, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch': 1000, 'k': 4,
      'alpha': 1.5, 'beta': 0.01, 'lambda_1': 0.0, 'lambda_2': 0.0}
     # ffm_model.fit(param, os.path.join(cwd,"model.out"))
     ffm_model.cv(param)
