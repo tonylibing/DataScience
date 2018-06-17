@@ -1243,7 +1243,7 @@ def trainFFM(args):
     ffm_model.setSigmoid()
     # param = {'task': 'binary', 'lr': 0.02, 'lambda': 0.001, 'metric': 'auc', 'opt': 'ftrl', 'epoch':1000, 'k': 5,'stop_window':3,
     #          'alpha':0.002, 'beta':0.8, 'lambda_1':0.001, 'lambda_2': 1.0,'fold': 5}
-    param = {'task': 'binary', 'lr': 0.01, 'lambda': 0.01, 'metric': 'auc', 'opt': 'ftrl', 'epoch': 1000, 'k': 4,
+    param = {'task': 'binary', 'lr': 0.01, 'lambda': 0.01, 'metric': 'auc', 'opt': 'adagrad', 'epoch': 5, 'k': 4,
      'alpha': 1.5, 'beta': 0.01, 'lambda_1': 0.0, 'lambda_2': 0.0}
     # 'alpha': 0.002, 'beta': 0.8, 'lambda_1': 0.001, 'lambda_2': 1.0}
     # ffm_model.fit(param, os.path.join(cwd,"model.out"))
